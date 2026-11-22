@@ -29,3 +29,5 @@ services:
         value: "90000"
       - key: JAVA_TOOL_OPTIONS
         value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+      - key: OPENAPI_SERVER_URL
+        value: https://projeto2-apibarbie.onrender.com

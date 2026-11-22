@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.tags.Tag;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,6 +24,14 @@ import java.util.List;
  */
 @Configuration
 public class OpenApiConfig {
+
+    /**
+     * URL pública da API, usada pelo Swagger UI no botão "Execute".
+     * Em produção o Render define OPENAPI_SERVER_URL automaticamente.
+     * Se não definir, usa a URL do Render (this deployment) por padrão.
+     */
+    @Value("${openapi.server-url:https://projeto2-apibarbie.onrender.com}")
+    private String serverUrl;
 
     @Bean
     public OpenAPI openAPI() {
@@ -74,11 +83,8 @@ public class OpenApiConfig {
                 // ── Servidores ────────────────────────────────────────────────
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:8080")
-                                .description("Servidor local de desenvolvimento"),
-                        new Server()
-                                .url("http://localhost:8080")
-                                .description("H2 Console: http://localhost:8080/h2-console")
+                                .url(serverUrl)
+                                .description("Servidor de produção (Render)")
                 ))
 
                 // ── Tags com descrições (ordenação no Swagger UI) ─────────────
