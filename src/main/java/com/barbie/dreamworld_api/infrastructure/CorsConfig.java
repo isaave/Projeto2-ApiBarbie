@@ -2,6 +2,8 @@ package com.barbie.dreamworld_api.infrastructure;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -18,7 +20,11 @@ public class CorsConfig {
     @Value("${cors.allowed-origins:*}")
     private String allowedOrigins;
 
+    // Precisa de correr ANTES do ApiKeyFilter (@Order(1)), senão as respostas
+    // 401/403 são escritas pelo filtro de segurança sem headers CORS e o
+    // browser reporta "No Access-Control-Allow-Origin header" em vez do erro real.
     @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
 
