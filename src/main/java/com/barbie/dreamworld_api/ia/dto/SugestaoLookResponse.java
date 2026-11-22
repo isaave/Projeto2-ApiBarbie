@@ -14,7 +14,37 @@ import java.util.List;
 @Getter
 @Setter
 @Builder
-@Schema(description = "Sugestão de look gerada por IA para uma Barbie")
+@Schema(
+        description = "Sugestão de look gerada por IA para uma Barbie",
+        example = """
+                {
+                  "barbieId": 1,
+                  "nomeBarbie": "Barbie Cientista",
+                  "ocasiao": "Festa glamourosa no jardim",
+                  "tituloLook": "Look Laboratório Glamouroso",
+                  "resumo": "Um look que mistura ciência e elegância, com tons metálicos e um toque futurista.",
+                  "paletaCores": ["prateado", "lilás", "branco"],
+                  "itensSugeridos": [
+                    {
+                      "nome": "Jaleco branco ajustado",
+                      "categoria": "Vestuário",
+                      "motivo": "Reforça a identidade científica com um toque moderno."
+                    },
+                    {
+                      "nome": "Sandália prateada com salto bloco",
+                      "categoria": "Calçado",
+                      "motivo": "Adiciona brilho sem perder a praticidade."
+                    }
+                  ],
+                  "acessoriosDoAcervoRecomendados": ["Óculos de proteção futuristas", "Bolsa holográfica"],
+                  "imagem": {
+                    "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                    "mimeType": "image/png",
+                    "base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+                  }
+                }
+                """
+)
 public class SugestaoLookResponse {
 
     @Schema(description = "ID da Barbie para quem a sugestão foi gerada", example = "1")
@@ -23,25 +53,40 @@ public class SugestaoLookResponse {
     @Schema(description = "Nome da Barbie", example = "Barbie Cientista")
     private String nomeBarbie;
 
-    @Schema(description = "Ocasião considerada na geração do look")
+    @Schema(description = "Ocasião considerada na geração do look", example = "Festa glamourosa no jardim")
     private String ocasiao;
 
     @Schema(description = "Título curto do look sugerido pela IA", example = "Look Laboratório Glamouroso")
     private String tituloLook;
 
-    @Schema(description = "Resumo explicando a ideia geral do look")
+    @Schema(
+            description = "Resumo explicando a ideia geral do look",
+            example = "Um look que mistura ciência e elegância, com tons metálicos e um toque futurista."
+    )
     private String resumo;
 
-    @Schema(description = "Paleta de cores sugerida")
+    @Schema(description = "Paleta de cores sugerida", example = "[\"prateado\", \"lilás\", \"branco\"]")
     private List<String> paletaCores;
 
     @Schema(description = "Itens sugeridos para compor o look")
     private List<ItemSugerido> itensSugeridos;
 
-    @Schema(description = "Acessórios que a Barbie já possui e que a IA recomenda usar nesse look")
+    @Schema(
+            description = "Acessórios que a Barbie já possui e que a IA recomenda usar nesse look",
+            example = "[\"Óculos de proteção futuristas\", \"Bolsa holográfica\"]"
+    )
     private List<String> acessoriosDoAcervoRecomendados;
 
-    @Schema(description = "Imagem da Barbie vestida com o look gerado. Use o campo 'dataUrl' diretamente no atributo src de um <img>.")
+    @Schema(
+            description = "Imagem da Barbie vestida com o look gerado. Use o campo 'dataUrl' diretamente no atributo src de um <img>.",
+            example = """
+                    {
+                      "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                      "mimeType": "image/png",
+                      "base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+                    }
+                    """
+    )
     private ImagemLook imagem;
 
     @Getter
@@ -50,13 +95,19 @@ public class SugestaoLookResponse {
     @Schema(description = "Imagem gerada pela IA para o look")
     public static class ImagemLook {
 
-        @Schema(description = "URL completa pronta para uso: data:image/png;base64,...")
+        @Schema(
+                description = "URL completa pronta para uso: data:image/png;base64,...",
+                example = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+        )
         private String dataUrl;
 
         @Schema(description = "Tipo MIME da imagem", example = "image/png")
         private String mimeType;
 
-        @Schema(description = "Conteúdo da imagem em base64 (sem o prefixo data:)")
+        @Schema(
+                description = "Conteúdo da imagem em base64 (sem o prefixo data:)",
+                example = "iVBORw0KGgoAAAANSUhEUgAA..."
+        )
         private String base64;
     }
 
@@ -72,7 +123,10 @@ public class SugestaoLookResponse {
         @Schema(description = "Categoria do item", example = "Calçado")
         private String categoria;
 
-        @Schema(description = "Motivo da IA ter sugerido esse item")
+        @Schema(
+                description = "Motivo da IA ter sugerido esse item",
+                example = "Adiciona brilho sem perder a praticidade."
+        )
         private String motivo;
     }
 }
