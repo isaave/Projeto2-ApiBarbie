@@ -11,10 +11,11 @@ import org.springframework.web.filter.CorsFilter;
 public class CorsConfig {
 
     /**
-     * Origem do frontend em produção (repo separado). Pode conter várias URLs
-     * separadas por vírgula. Em desenvolvimento usa apenas o localhost.
+     * Origens do frontend. Em produção preencher CORS_ALLOWED_ORIGINS no Render.
+     * Aceita "*" (usa allowedOriginPatterns, compatível com allowCredentials)
+     * ou uma lista de URLs separadas por vírgula.
      */
-    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:4200}")
+    @Value("${cors.allowed-origins:*}")
     private String allowedOrigins;
 
     @Bean
@@ -23,7 +24,14 @@ public class CorsConfig {
 
         for (String origin : allowedOrigins.split(",")) {
             String trimmed = origin.trim();
-            if (!trimmed.isEmpty()) {
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            if ("*".equals(trimmed)) {
+                // Com allowCredentials=true, o Spring exige allowedOriginPatterns
+                // em vez de addAllowedOrigin("*")
+                config.addAllowedOriginPattern("*");
+            } else {
                 config.addAllowedOrigin(trimmed);
             }
         }
