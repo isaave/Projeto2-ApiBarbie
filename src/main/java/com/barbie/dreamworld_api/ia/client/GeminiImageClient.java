@@ -36,7 +36,8 @@ public class GeminiImageClient {
     // Formato retrato favorece uma boneca em corpo inteiro.
     private static final String ASPECT_RATIO = "3:4";
     private static final String IMAGE_SIZE = "1K";
-    private static final String MIME_TYPE = "image/png";
+    // A Interactions API atual só aceita image/jpeg em response_format.mime_type
+    private static final String MIME_TYPE = "image/jpeg";
     // Revisão da API exigida pelos exemplos oficiais da Interactions API.
     private static final String API_REVISION = "2026-05-20";
 
@@ -210,7 +211,7 @@ public class GeminiImageClient {
         if (mime == null) {
             mime = map.get("mimeType");
         }
-        String mimeType = mime instanceof String s && !s.isBlank() ? s : "image/png";
+        String mimeType = mime instanceof String s && !s.isBlank() ? s : MIME_TYPE;
 
         return new ImagemGerada(mimeType, base64);
     }

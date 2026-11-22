@@ -38,8 +38,8 @@ import java.util.List;
                   ],
                   "acessoriosDoAcervoRecomendados": ["Óculos de proteção futuristas", "Bolsa holográfica"],
                   "imagem": {
-                    "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-                    "mimeType": "image/png",
+                    "dataUrl": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                    "mimeType": "image/jpeg",
                     "base64": "iVBORw0KGgoAAAANSUhEUgAA..."
                   }
                 }
@@ -81,8 +81,8 @@ public class SugestaoLookResponse {
             description = "Imagem da Barbie vestida com o look gerado. Use o campo 'dataUrl' diretamente no atributo src de um <img>.",
             example = """
                     {
-                      "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-                      "mimeType": "image/png",
+                      "dataUrl": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                      "mimeType": "image/jpeg",
                       "base64": "iVBORw0KGgoAAAANSUhEUgAA..."
                     }
                     """
@@ -96,12 +96,12 @@ public class SugestaoLookResponse {
     public static class ImagemLook {
 
         @Schema(
-                description = "URL completa pronta para uso: data:image/png;base64,...",
-                example = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                description = "URL completa pronta para uso: data:image/jpeg;base64,...",
+                example = "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAA..."
         )
         private String dataUrl;
 
-        @Schema(description = "Tipo MIME da imagem", example = "image/png")
+        @Schema(description = "Tipo MIME da imagem", example = "image/jpeg")
         private String mimeType;
 
         @Schema(
