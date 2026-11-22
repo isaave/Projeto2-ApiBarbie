@@ -89,6 +89,12 @@ public class SugestaoLookResponse {
     )
     private ImagemLook imagem;
 
+    @Schema(
+            description = "Aviso quando o texto foi gerado mas a imagem não pôde ser criada (ex.: quota do provedor).",
+            example = "O look foi gerado, mas a imagem não pôde ser criada: limite de requisições atingido."
+    )
+    private String avisoImagem;
+
     @Getter
     @Setter
     @Builder

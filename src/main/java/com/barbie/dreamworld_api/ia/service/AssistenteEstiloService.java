@@ -68,13 +68,20 @@ public class AssistenteEstiloService {
         SugestaoLookResponse resposta = parseResposta(jsonBruto, barbie, ocasiaoDescricao);
 
         // Usa exatamente o look que a IA acabou de gerar como base para a imagem.
-        String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
-        ImagemGerada imagem = geminiImageClient.gerarImagem(promptImagem);
-        resposta.setImagem(SugestaoLookResponse.ImagemLook.builder()
-                .dataUrl(imagem.toDataUrl())
-                .mimeType(imagem.mimeType())
-                .base64(imagem.base64())
-                .build());
+        // Se o provedor de imagens estiver sem quota, ainda devolvemos o look em
+        // texto com um aviso, em vez de descartar toda a resposta da IA.
+        try {
+            String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
+            ImagemGerada imagem = geminiImageClient.gerarImagem(promptImagem);
+            resposta.setImagem(SugestaoLookResponse.ImagemLook.builder()
+                    .dataUrl(imagem.toDataUrl())
+                    .mimeType(imagem.mimeType())
+                    .base64(imagem.base64())
+                    .build());
+        } catch (RuntimeException ex) {
+            log.warn("Não foi possível gerar a imagem do look (look em texto mantido): {}", ex.getMessage());
+            resposta.setAvisoImagem("O look foi gerado, mas a imagem não pôde ser criada: " + ex.getMessage());
+        }
 
         return resposta;
     }
