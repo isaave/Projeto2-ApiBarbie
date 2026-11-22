@@ -1,0 +1,31 @@
+# Render Blueprint — Barbie Dreamworld API (backend)
+# O frontend está num repositório separado e é publicado como Static Site.
+
+services:
+  - type: web
+    # Mantém o nome do serviço já existente para preservar a URL pública:
+    # https://minha-api-da-barbie-1.onrender.com
+    name: minha-api-da-barbie-1
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      # Segredo: preenchido no dashboard do Render (nunca no repositório)
+      - key: GEMINI_API_KEY
+        sync: false
+      # URL do frontend (repo separado). Exemplo:
+      # https://front-apibarbie.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_IMAGE_MODEL
+        value: gemini-nano-banana-2.1
+      - key: GEMINI_TIMEOUT_MS
+        value: "30000"
+      - key: GEMINI_IMAGE_TIMEOUT_MS
+        value: "90000"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"

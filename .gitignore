@@ -1,0 +1,7 @@
+# Project exclude paths
+/target/
+/.idea
+
+# Segredos locais (chave de API etc.) — nunca commitar
+.env
+*.env
