@@ -6,6 +6,7 @@ import com.barbie.dreamworld_api.exceptions.ResourceNotFoundException;
 import com.barbie.dreamworld_api.ia.client.GeminiClient;
 import com.barbie.dreamworld_api.ia.client.GeminiImageClient;
 import com.barbie.dreamworld_api.ia.client.IlustracaoLookClient;
+import com.barbie.dreamworld_api.ia.client.LookLocalClient;
 import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
 import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
@@ -40,6 +41,7 @@ public class AssistenteEstiloService {
     private final GeminiClient geminiClient;
     private final GeminiImageClient geminiImageClient;
     private final IlustracaoLookClient ilustracaoLookClient;
+    private final LookLocalClient lookLocalClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -68,9 +70,18 @@ public class AssistenteEstiloService {
                 : request.getOcasiao().trim();
 
         String prompt = montarPrompt(barbie, ocasiaoDescricao, request.getPreferencias());
-        String jsonBruto = geminiClient.generateJson(prompt, buildResponseSchema(), 3072);
+        SugestaoLookResponse resposta;
 
-        SugestaoLookResponse resposta = parseResposta(jsonBruto, barbie, ocasiaoDescricao);
+        try {
+            String jsonBruto = geminiClient.generateJson(prompt, buildResponseSchema(), 3072);
+            resposta = parseResposta(jsonBruto, barbie, ocasiaoDescricao);
+        } catch (RuntimeException ex) {
+            // O tier gratuito pode esgotar a cota de texto. Em vez de derrubar a
+            // demo, montamos um look coerente com os dados reais e avisamos o
+            // cliente que o modo local foi usado.
+            log.warn("Gemini indisponível para gerar o look ({}). Usando fallback local.", ex.getMessage());
+            resposta = lookLocalClient.gerarLook(barbie, ocasiaoDescricao, request.getPreferencias());
+        }
 
         // Usa exatamente o look que a IA acabou de gerar como base para a imagem.
         // Se o provedor de imagens estiver sem quota, ainda devolvemos o look em
@@ -129,8 +140,13 @@ public class AssistenteEstiloService {
                 : request.getOcasiao().trim();
 
         String prompt = montarPromptDicas(barbie, request, ocasiaoDescricao);
-        String jsonBruto = geminiClient.generateJson(prompt, buildDicasSchema(), 1024);
-        return parseDicas(jsonBruto);
+        try {
+            String jsonBruto = geminiClient.generateJson(prompt, buildDicasSchema(), 1024);
+            return parseDicas(jsonBruto);
+        } catch (RuntimeException ex) {
+            log.warn("Gemini indisponível para gerar dicas ({}). Usando fallback local.", ex.getMessage());
+            return lookLocalClient.gerarDicas(barbie, request, ocasiaoDescricao);
+        }
     }
 
     /** Cria uma nova versão visual do mesmo look, sem chamar o Gemini novamente. */

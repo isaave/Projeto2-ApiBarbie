@@ -39,6 +39,12 @@ public class DicasLookResponse {
     @Schema(description = "Toque final sugerido pela estilista")
     private String toqueFinal;
 
+    @Schema(
+            description = "Aviso de que o Gemini estava indisponível e as dicas foram montadas localmente a partir do acervo real.",
+            example = "A IA generativa estava temporariamente indisponível (cota ou conexão). Este look foi montado automaticamente a partir do acervo real da Barbie."
+    )
+    private String aviso;
+
     @Getter
     @Setter
     @Builder

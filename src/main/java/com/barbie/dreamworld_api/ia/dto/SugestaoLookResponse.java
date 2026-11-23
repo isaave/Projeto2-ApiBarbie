@@ -95,6 +95,12 @@ public class SugestaoLookResponse {
     )
     private String avisoImagem;
 
+    @Schema(
+            description = "Aviso de que o Gemini estava indisponível e o look foi montado localmente a partir do acervo real.",
+            example = "A IA generativa estava temporariamente indisponível (cota ou conexão). Este look foi montado automaticamente a partir do acervo real da Barbie."
+    )
+    private String aviso;
+
     @Schema(description = "Dicas aprimoradas da estilista para refinar este look na mesma ocasião")
     private List<DicasLookResponse.Dica> dicas;
 

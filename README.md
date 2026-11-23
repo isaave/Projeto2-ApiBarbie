@@ -45,8 +45,9 @@ Completa com IA em Produção).
                                                                     │  429 / sem cota       │
                                                                     ▼                       ▼
                                                          ┌────────────────────────────────────┐
+                                                         │ LookLocalClient (texto local)     │
                                                          │ IlustracaoLookClient (SVG local)  │
-                                                         │ determinístico, sem rede externa  │
+                                                         │ determinísticos, sem rede externa │
                                                          └────────────────────────────────────┘
 ```
 
@@ -57,7 +58,7 @@ Camadas relevantes do código:
 | `controllers` | CRUD das 5 entidades + rotas de autenticação |
 | `apikey`, `ratelimit` | Segurança: chaves com hash SHA-256, limites por IP |
 | `ia.controller`, `ia.service` | Orquestração do Assistente de Estilo |
-| `ia.client` | `GeminiClient` (texto), `GeminiImageClient` (foto), `IlustracaoLookClient` (SVG) |
+| `ia.client` | `GeminiClient` (texto), `GeminiImageClient` (foto), `LookLocalClient` (texto local), `IlustracaoLookClient` (SVG) |
 | `ia.dto` | Contratos de entrada/saída com schemas e exemplos no Swagger |
 | `infrastructure` | CORS, OpenAPI e carga inicial do banco |
 | `exceptions` | Envelope de erro único + escrita JSON nos filtros |
@@ -280,6 +281,7 @@ e eliminando dependência de cota externa. O frontend exibe o aviso
 | Timeout / 5xx do Gemini | 503 | 1 retentativa com 500 ms |
 | Rate limit do Gemini | 429 | Sem retry, falha rápido |
 | Resposta de IA inválida | 502 | `parseResposta` / `extrairTexto` |
+| Sem cota / erro do Gemini (texto) | 200 | Look e dicas montados localmente + campo `aviso` |
 | Sem cota de imagem | 200 | Ilustração SVG + `avisoImagem` |
 
 Todos os erros usam o envelope único `timestamp`, `status`, `error`, `message`,
@@ -302,6 +304,8 @@ Cobertura crítica incluída:
   filtro barra com `401`.
 - `IlustracaoLookClientTest` — SVG válido em `data:` URL, variações diferentes,
   resiliência a look nulo.
+- `LookLocalClientTest` — fallback de texto usa acessórios reais e sinaliza
+  origem no campo `aviso`.
 - `DreamworldApiApplicationTests` — sobe o contexto Spring.
 
 ---
@@ -340,8 +344,10 @@ para a API do Render. A chave é gerada automaticamente na primeira carga.
 - **Plano free do Render:** suspende após inatividade; a primeira requisição
   pode levar ~50 s. Para a apresentação, acesse a URL pouco antes ou use um
   plano pago.
-- **Tier gratuito do Gemini:** não gera imagens. O sistema já degrada para SVG
-  determinístico, mas a geração de **texto** depende da cota do modelo —
-  configure uma chave ativa antes da banca.
+- **Tier gratuito do Gemini:** não gera imagens e pode esgotar a cota de texto.
+  O sistema degrada em duas camadas: texto montado a partir do acervo real
+  (campo `aviso`) e ilustração SVG determinística (`avisoImagem`). Ainda assim,
+  configure uma chave ativa antes da banca para demonstrar o caminho completo
+  com o Gemini.
 - **Sem persistência de chaves:** reiniciar a API invalida as chaves; o
   frontend renova automaticamente.

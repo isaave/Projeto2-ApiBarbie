@@ -77,9 +77,10 @@
       **acessórios que realmente pertencem à Barbie**.
 - [ ] Abrir `imagem.dataUrl` no navegador: ilustração vetorial coerente com o
       look (cores e peças batem com o texto).
-- [ ] Mostrar `avisoImagem` e explicar com naturalidade:
-      _“o tier gratuito não tem cota de imagem; em vez de devolver uma foto
-      aleatória, desenhamos a Barbie a partir do próprio look”_.
+- [ ] Mostrar `aviso` e `avisoImagem` e explicar com naturalidade:
+      _“se o Gemini estiver sem cota, o texto é montado a partir do acervo real
+      e a imagem é desenhada a partir do próprio look — nunca uma foto
+      aleatória. Os campos `aviso` e `avisoImagem` deixam isso transparente”_.
 
 ### 3.4 Dicas e nova imagem (1 min)
 - [ ] `POST /api/ia/assistente-estilo/dicas` com o contexto do look → mostrar
@@ -123,7 +124,7 @@ fica como próximo passo.”_
       `X-Forwarded-For` só atrás de proxy confiável.
 - [ ] Limitações com transparência: H2 em memória (dados voltam ao restart),
       plano free do Render suspende após inatividade, tier gratuito do Gemini
-      sem cota de imagem (já mitigado pelo SVG).
+      sem cota de imagem/texto (já mitigado por fallback local e SVG).
 - [ ] Convidar perguntas e deixar Swagger + frontend abertos.
 
 **Frase final:** _“A aplicação está publicada, documentada e pronta para
