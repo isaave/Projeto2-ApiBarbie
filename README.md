@@ -92,6 +92,7 @@ existente em vez de duplicar lógica.
 | Eventos                     | `GET/POST /api/eventos`, `GET/PUT/DELETE /api/eventos/{id}`            |
 | Chaves de API               | `POST /api/auth/api-keys`, `GET /api/auth/api-keys`, `DELETE /api/auth/api-keys/{id}` |
 | **Assistente de Estilo (IA)** | **`POST /api/ia/assistente-estilo`**                                  |
+| **Dicas aprimoradas (IA)**    | **`POST /api/ia/assistente-estilo/dicas`**                            |
 
 A documentação completa e interativa de todas as rotas (schemas, exemplos,
 códigos de erro) está no Swagger UI.
@@ -184,6 +185,20 @@ Todos os erros seguem o mesmo envelope `ErrorResponse` já usado no resto da
 API (`timestamp`, `status`, `error`, `message`, `path`), então o frontend
 trata o erro de IA exatamente como trata qualquer outro erro da API.
 
+### Dicas aprimoradas para um look já gerado
+
+**`POST /api/ia/assistente-estilo/dicas`**
+
+Recebe como contexto o look que já foi gerado (título, resumo, paleta, itens
+e acessórios) e devolve dicas práticas da IA para refiná-lo **na mesma
+ocasião** — caimento, cores, calçado, cabelo, acessórios e um toque final.
+O look original não é recriado. O campo opcional `foco` permite pedir, por
+exemplo, dicas só de calçado e cabelo.
+
+No frontend, cada look gerado traz o botão **💡 Dicas aprimoradas**. Também é
+possível escrever no chat algo como _"melhore esse look, foque no calçado"_
+que a estilista refina o último look em vez de criar outro.
+
 ---
 
 ## Frontend
@@ -193,7 +208,7 @@ O frontend estático (`Front - ApiBarbie/index.html`) tem uma aba
 digitar uma ocasião livre), disparar a geração e ver o resultado formatado,
 com feedback de carregamento enquanto a IA responde e mensagens de erro
 amigáveis em caso de falha. O frontend está num **repositório separado** e é
-publicado como Static Site.
+publicado como Static Site em `https://isaave.github.io/Front_apibarbie/`.
 
 ---
 
@@ -244,12 +259,12 @@ valores de `GEMINI_API_KEY` e `CORS_ALLOWED_ORIGINS` (marcados como
 | Variável | Valor |
 |---|---|
 | `GEMINI_API_KEY` | chave do Google AI Studio |
-| `CORS_ALLOWED_ORIGINS` | URL pública do frontend (ex.: `https://front-apibarbie.onrender.com`) |
+| `CORS_ALLOWED_ORIGINS` | URL pública do frontend (ex.: `https://isaave.github.io`) |
 
 ### 5. Verificar
 
-- Healthcheck: `GET https://minha-api-da-barbie-1.onrender.com/actuator/health`
-- Swagger: `https://minha-api-da-barbie-1.onrender.com/swagger-ui/index.html`
+- Healthcheck: `GET https://projeto2-apibarbie.onrender.com/actuator/health`
+- Swagger: `https://projeto2-apibarbie.onrender.com/swagger-ui/index.html`
 - A API responde `503` no endpoint de IA se a chave não estiver configurada —
   isso é esperado e indicado no corpo do erro.
 
@@ -260,7 +275,8 @@ valores de `GEMINI_API_KEY` e `CORS_ALLOWED_ORIGINS` (marcados como
 
 ### Segurança em produção
 
-- CORS restrito às origens configuradas (sem `*`).
+- CORS controlado por `CORS_ALLOWED_ORIGINS`; no deploy público está configurado
+  como `*` para aceitar o frontend hospedado no GitHub Pages.
 - H2 Console desligado por padrão (`H2_CONSOLE_ENABLED=false`).
 - Chave da IA apenas em variável de ambiente; nunca no código.
 - Atenção: as rotas `POST/GET /api/auth/api-keys` ainda são públicas e
