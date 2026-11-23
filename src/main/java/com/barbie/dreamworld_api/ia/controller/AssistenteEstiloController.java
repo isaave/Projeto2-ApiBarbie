@@ -6,7 +6,6 @@ import com.barbie.dreamworld_api.ia.dto.SugestaoLookRequest;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookResponse;
 import com.barbie.dreamworld_api.ia.service.AssistenteEstiloService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -60,9 +58,6 @@ public class AssistenteEstiloController {
     })
     @PostMapping("/assistente-estilo")
     public ResponseEntity<SugestaoLookResponse> gerarSugestao(
-            @Parameter(description = "Chave de API para autenticação", required = true)
-            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
-
             @Valid @RequestBody SugestaoLookRequest request) {
         return ResponseEntity.ok(assistenteEstiloService.gerarSugestao(request));
     }
@@ -92,23 +87,34 @@ public class AssistenteEstiloController {
     })
     @PostMapping("/assistente-estilo/dicas")
     public ResponseEntity<DicasLookResponse> gerarDicas(
-            @Parameter(description = "Chave de API para autenticação", required = true)
-            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
-
             @Valid @RequestBody DicasLookRequest request) {
         return ResponseEntity.ok(assistenteEstiloService.gerarDicas(request));
     }
 
     @Operation(
             summary = "Gerar outra imagem para o mesmo look",
-            description = " Mantém o look em texto e devolve uma nova ilustração da Barbie, "
-                    + "com seed e variação de estilo diferentes. Não consome o Gemini."
+            description = """
+                    Mantém o look em texto e devolve uma nova variação determinística da
+                    ilustração vetorial da Barbie: pose, penteado e cenário mudam, mas as
+                    cores, peças e acessórios continuam sendo exatamente os do look.
+                    Não consome o Gemini e não depende de serviço externo.
+                    """
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Nova ilustração gerada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Corpo da requisição inválido",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "X-API-Key ausente ou inválida",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Chave sem permissão de escrita",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Barbie ou evento não encontrado",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "429", description = "Limite de requisições atingido",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/assistente-estilo/regerar-imagem")
     public ResponseEntity<SugestaoLookResponse.ImagemLook> gerarNovaImagem(
-            @Parameter(description = "Chave de API para autenticação", required = true)
-            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
-
             @Valid @RequestBody DicasLookRequest request) {
         return ResponseEntity.ok(assistenteEstiloService.gerarNovaImagem(request));
     }

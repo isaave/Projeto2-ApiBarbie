@@ -17,7 +17,7 @@ public class CorsConfig {
      * Aceita "*" (usa allowedOriginPatterns, compatível com allowCredentials)
      * ou uma lista de URLs separadas por vírgula.
      */
-    @Value("${cors.allowed-origins:*}")
+    @Value("${cors.allowed-origins:https://isaave.github.io}")
     private String allowedOrigins;
 
     // Precisa de correr ANTES do ApiKeyFilter (@Order(1)), senão as respostas
@@ -26,6 +26,7 @@ public class CorsConfig {
     @Bean
     public FilterRegistrationBean<CorsFilter> corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
+        boolean algumaOrigem = false;
 
         for (String origin : allowedOrigins.split(",")) {
             String trimmed = origin.trim();
@@ -39,6 +40,11 @@ public class CorsConfig {
             } else {
                 config.addAllowedOrigin(trimmed);
             }
+            algumaOrigem = true;
+        }
+
+        if (!algumaOrigem) {
+            config.addAllowedOrigin("https://isaave.github.io");
         }
 
         config.addAllowedMethod("GET");
@@ -52,7 +58,6 @@ public class CorsConfig {
         config.addAllowedHeader("Accept");
         config.addAllowedHeader("X-API-Key");
         config.addAllowedHeader("Idempotency-Key");
-        config.addAllowedHeader("Authorization");
 
         config.addExposedHeader("X-Rate-Limit-Remaining");
         config.addExposedHeader("X-Rate-Limit-Retry-After-Seconds");
@@ -63,7 +68,7 @@ public class CorsConfig {
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/**", config);
 
         FilterRegistrationBean<CorsFilter> registration =
                 new FilterRegistrationBean<>(new CorsFilter(source));

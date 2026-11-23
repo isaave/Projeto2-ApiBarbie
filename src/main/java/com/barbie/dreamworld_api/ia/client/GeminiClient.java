@@ -35,6 +35,20 @@ public class GeminiClient {
     private static final int MAX_TENTATIVAS = 2;
     private static final long ESPERA_ENTRE_TENTATIVAS_MS = 500;
 
+    /**
+     * Prompt de sistema formal. O papel/escopo detalhado continua no prompt do
+     * serviço, mas aqui fixamos as regras de contrato que não podem variar.
+     */
+    private static final String SYSTEM_INSTRUCTION = """
+            Você é a estilista oficial do universo Barbie Dreamworld.
+            Responda SEMPRE em português do Brasil, com tom alegre, elegante e familiar.
+            Seu escopo é exclusivamente moda, acessórios e ocasiões desse universo.
+            Nunca invente dados de catálogo, nunca cite marcas reais e nunca produza
+            conteúdo ofensivo, sexual ou político.
+            Responda somente com o JSON solicitado pelo schema — sem texto solto,
+            sem markdown e sem comentários.
+            """;
+
     private final RestClient restClient;
     private final String apiKey;
     private final String model;
@@ -64,6 +78,10 @@ public class GeminiClient {
         }
 
         Map<String, Object> body = Map.of(
+                "systemInstruction", Map.of(
+                        "role", "system",
+                        "parts", List.of(Map.of("text", SYSTEM_INSTRUCTION))
+                ),
                 "contents", List.of(Map.of(
                         "role", "user",
                         "parts", List.of(Map.of("text", prompt))
@@ -73,7 +91,7 @@ public class GeminiClient {
                         "maxOutputTokens", maxOutputTokens,
                         "responseMimeType", "application/json",
                         "responseSchema", responseSchema,
-                        "thinkingConfig", Map.of("thinkingBudget", 0)
+                        "thinkingConfig", Map.of("thinkingLevel", "minimal")
                 )
         );
 
@@ -131,7 +149,13 @@ public class GeminiClient {
     private String extrairTexto(Map<String, Object> response) {
         try {
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
-            Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
+            Map<String, Object> primeiro = candidates.get(0);
+            Object finishReason = primeiro.get("finishReason");
+            if ("MAX_TOKENS".equals(finishReason) || "SAFETY".equals(finishReason)) {
+                throw new IllegalStateException("finishReason=" + finishReason);
+            }
+
+            Map<String, Object> content = (Map<String, Object>) primeiro.get("content");
             List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
             String texto = (String) parts.get(0).get("text");
 

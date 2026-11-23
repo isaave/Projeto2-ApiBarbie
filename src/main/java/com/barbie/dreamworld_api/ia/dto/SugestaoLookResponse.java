@@ -38,9 +38,9 @@ import java.util.List;
                   ],
                   "acessoriosDoAcervoRecomendados": ["Óculos de proteção futuristas", "Bolsa holográfica"],
                   "imagem": {
-                    "dataUrl": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-                    "mimeType": "image/jpeg",
-                    "base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+                    "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci...",
+                    "mimeType": "image/svg+xml",
+                    "base64": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci..."
                   }
                 }
                 """
@@ -81,9 +81,9 @@ public class SugestaoLookResponse {
             description = "Imagem da Barbie vestida com o look gerado. Use o campo 'dataUrl' diretamente no atributo src de um <img>.",
             example = """
                     {
-                      "dataUrl": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-                      "mimeType": "image/jpeg",
-                      "base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+                      "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci...",
+                      "mimeType": "image/svg+xml",
+                      "base64": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci..."
                     }
                     """
     )
@@ -111,17 +111,17 @@ public class SugestaoLookResponse {
     public static class ImagemLook {
 
         @Schema(
-                description = "URL completa pronta para uso: data:image/jpeg;base64,...",
-                example = "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                description = "URL completa pronta para uso: data:image/svg+xml;base64,...",
+                example = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci..."
         )
         private String dataUrl;
 
-        @Schema(description = "Tipo MIME da imagem", example = "image/jpeg")
+        @Schema(description = "Tipo MIME da imagem", example = "image/svg+xml")
         private String mimeType;
 
         @Schema(
                 description = "Conteúdo da imagem em base64 (sem o prefixo data:)",
-                example = "iVBORw0KGgoAAAANSUhEUgAA..."
+                example = "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci..."
         )
         private String base64;
     }

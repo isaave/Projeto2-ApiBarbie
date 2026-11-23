@@ -5,7 +5,7 @@ import com.barbie.dreamworld_api.exceptions.BusinessException;
 import com.barbie.dreamworld_api.exceptions.ResourceNotFoundException;
 import com.barbie.dreamworld_api.ia.client.GeminiClient;
 import com.barbie.dreamworld_api.ia.client.GeminiImageClient;
-import com.barbie.dreamworld_api.ia.client.PollinationsImageClient;
+import com.barbie.dreamworld_api.ia.client.IlustracaoLookClient;
 import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
 import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -38,7 +39,7 @@ public class AssistenteEstiloService {
     private final EventoRepository eventoRepository;
     private final GeminiClient geminiClient;
     private final GeminiImageClient geminiImageClient;
-    private final PollinationsImageClient pollinationImageClient;
+    private final IlustracaoLookClient ilustracaoLookClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -80,14 +81,19 @@ public class AssistenteEstiloService {
         try {
             imagem = geminiImageClient.gerarImagem(promptImagem);
         } catch (RuntimeException ex) {
-            log.warn("Gemini sem imagem disponível ({}). Tentando gerador alternativo.", ex.getMessage());
+            log.warn("Gemini sem imagem disponível ({}). Usando ilustração vetorial do look.", ex.getMessage());
+            resposta.setAvisoImagem(
+                    "Imagem ilustrativa criada a partir do look (o gerador de fotos estava sem cota).");
         }
 
         if (imagem == null) {
             try {
-                imagem = pollinationImageClient.gerarImagem(promptImagem);
+                // Fallback determinístico: desenha a Barbie usando exatamente as
+                // cores, peças e acessórios do look gerado pela IA. Não depende
+                // de serviço externo nem de cota de imagem.
+                imagem = ilustracaoLookClient.gerarImagem(promptImagem, resposta);
             } catch (RuntimeException ex) {
-                log.warn("Gerador alternativo também falhou: {}", ex.getMessage());
+                log.warn("Ilustração do look falhou: {}", ex.getMessage());
                 resposta.setAvisoImagem(
                         "O look foi gerado, mas a imagem não pôde ser criada: " + ex.getMessage());
             }
@@ -156,13 +162,15 @@ public class AssistenteEstiloService {
                 .build();
 
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, look);
-        ImagemGerada imagem = pollinationImageClient.gerarNovaImagem(
-                promptImagem, request.getVariacaoImagem() == null ? 0 : request.getVariacaoImagem());
+        ImagemGerada imagem = ilustracaoLookClient.gerarNovaImagem(
+                promptImagem,
+                request.getVariacaoImagem() == null ? 0 : request.getVariacaoImagem(),
+                look);
 
         return SugestaoLookResponse.ImagemLook.builder()
                 .dataUrl(imagem.toDataUrl())
                 .mimeType(imagem.mimeType())
-                .base64(null)
+                .base64(imagem.base64())
                 .build();
     }
 
@@ -242,7 +250,7 @@ public class AssistenteEstiloService {
                 "properties", Map.of(
                         "titulo", Map.of("type", "STRING"),
                         "resumo", Map.of("type", "STRING"),
-                        "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema()),
+                        "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema(), "maxItems", 5),
                         "toqueFinal", Map.of("type", "STRING")
                 ),
                 "required", List.of("titulo", "resumo", "dicas", "toqueFinal")
@@ -278,10 +286,8 @@ public class AssistenteEstiloService {
         // Isso evita que o gerador de imagem ignore detalhes de um prompt longo
         // e garante que a imagem corresponda ao look que foi pedido.
         if (look.getPromptImagem() != null && !look.getPromptImagem().isBlank()) {
-            return "Classic Barbie fashion doll, "
-                    + look.getPromptImagem().trim().replaceAll("[.\\s]+$", "")
-                    + ". Full body, head to toe, centered, plain light pink studio background, "
-                    + "high detail, cheerful Dreamworld aesthetic, no text, no logos, no watermark.";
+            return look.getPromptImagem().trim().replaceAll("[.\\s]+$", "")
+                    + ", full body, centered, no text, no logos, no watermarks";
         }
 
         StringBuilder sb = new StringBuilder();
@@ -368,10 +374,11 @@ public class AssistenteEstiloService {
                   político ou fora do universo do produto.
                 - Seja objetivo: no máximo 5 itens em "itensSugeridos" e no máximo 4 cores em
                   "paletaCores".
-                - No campo "promptImagem", escreva EM INGLÊS um prompt visual curto (máximo 60
-                  palavras) com APENAS os elementos visíveis do look: as peças de roupa, as cores
-                  por nome (ex: hot pink, white, lavender), os acessórios e o cenário da ocasião.
-                  Não inclua explicações, marcas, texto na imagem nem frases do resumo.
+                - No campo "promptImagem", escreva EM INGLÊS no máximo 25 palavras, em ETIQUETAS
+                  curtas separadas por vírgula, sem frases e sem verbos. Exemplo:
+                  "fashion doll, pink floral midi dress, white cat-eye sunglasses, quilted pink handbag, sunny flower garden, full body, pink background".
+                  Inclua só peças, cores por nome (hot pink, white, lavender), acessórios e cenário.
+                  Nunca use a palavra "Barbie", marcas, nem frases como "no text" ou "no logo".
                 - No campo "dicas", inclua de 3 a 4 dicas APRIMORADAS para refinar esse look
                   na mesma ocasião (caimento, cores, calçado, cabelo ou acessórios), cada uma
                   com "categoria", "titulo" e "descricao" curta. Não repita o resumo.
@@ -417,17 +424,18 @@ public class AssistenteEstiloService {
         Map<String, Object> properties = Map.of(
                 "tituloLook", Map.of("type", "STRING"),
                 "resumo", Map.of("type", "STRING"),
-                "paletaCores", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
-                "itensSugeridos", Map.of("type", "ARRAY", "items", itemSchema),
-                "acessoriosDoAcervoRecomendados", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                "paletaCores", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"), "maxItems", 4),
+                "itensSugeridos", Map.of("type", "ARRAY", "items", itemSchema, "maxItems", 5),
+                "acessoriosDoAcervoRecomendados",
+                Map.of("type", "ARRAY", "items", Map.of("type", "STRING"), "maxItems", 4),
                 "promptImagem", Map.of("type", "STRING"),
-                "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema())
+                "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema(), "maxItems", 4)
         );
 
         return Map.of(
                 "type", "OBJECT",
                 "properties", properties,
-                "required", List.of("tituloLook", "resumo", "itensSugeridos", "dicas")
+                "required", List.of("tituloLook", "resumo", "itensSugeridos", "promptImagem", "dicas")
         );
     }
 
@@ -443,7 +451,8 @@ public class AssistenteEstiloService {
                     .resumo(textoOuPadrao(root, "resumo", ""))
                     .paletaCores(listaDeTextos(root, "paletaCores"))
                     .itensSugeridos(listaDeItens(root))
-                    .acessoriosDoAcervoRecomendados(listaDeTextos(root, "acessoriosDoAcervoRecomendados"))
+                    .acessoriosDoAcervoRecomendados(
+                            filtrarAcessoriosReais(listaDeTextos(root, "acessoriosDoAcervoRecomendados"), barbie))
                     .promptImagem(textoOuPadrao(root, "promptImagem", ""))
                     .dicas(listaDeDicas(root))
                     .build();
@@ -459,6 +468,34 @@ public class AssistenteEstiloService {
     private String textoOuPadrao(JsonNode root, String campo, String padrao) {
         JsonNode node = root.get(campo);
         return (node != null && !node.isNull()) ? node.asText(padrao) : padrao;
+    }
+
+    /**
+     * Defesa em profundidade contra alucinação: a IA pode sugerir apenas
+     * acessórios que realmente existem no acervo da Barbie. A verificação é
+     * feita também no servidor, não apenas no prompt.
+     */
+    private List<String> filtrarAcessoriosReais(List<String> sugeridos, Barbie barbie) {
+        if (sugeridos == null || sugeridos.isEmpty() || barbie.getAcessorios() == null) {
+            return List.of();
+        }
+
+        List<String> possuidos = barbie.getAcessorios().stream()
+                .map(Acessorio::getNomeItem)
+                .filter(n -> n != null && !n.isBlank())
+                .map(n -> n.trim().toLowerCase(Locale.ROOT))
+                .toList();
+
+        return sugeridos.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .filter(s -> {
+                    String nome = s.trim().toLowerCase(Locale.ROOT);
+                    return possuidos.stream().anyMatch(p ->
+                            nome.equals(p) || nome.contains(p) || p.contains(nome));
+                })
+                .distinct()
+                .limit(4)
+                .toList();
     }
 
     private List<String> listaDeTextos(JsonNode root, String campo) {

@@ -11,9 +11,13 @@ import java.util.UUID;
 /**
  * Entidade que representa uma chave de API.
  *
+ * A coluna {@code keyValue} guarda apenas o HASH SHA-256 da chave. O valor
+ * original existe somente no campo transitório {@code plainValue}, usado uma
+ * única vez no momento da criação para devolver a chave ao cliente.
+ *
  * Níveis de acesso:
  *   READ  → apenas GET
- *   WRITE → GET + POST + PUT + PATCH + DELETE
+ *   WRITE → GET + escrita
  *   ADMIN → tudo, incluindo revogar outras chaves
  */
 @Entity
@@ -30,6 +34,9 @@ public class ApiKey {
     @Column(nullable = false, unique = true, length = 64)
     private String keyValue;
 
+    @Transient
+    private String plainValue;
+
     @Column(nullable = false, length = 100)
     private String owner;
 
@@ -45,13 +52,14 @@ public class ApiKey {
 
     @PrePersist
     private void prePersist() {
-        this.keyValue  = UUID.randomUUID().toString();
+        this.plainValue = UUID.randomUUID().toString();
+        this.keyValue = ApiKeyHasher.hash(this.plainValue);
         this.createdAt = LocalDateTime.now();
     }
 
     public enum AccessLevel {
-        READ,   // somente leitura
-        WRITE,  // leitura + escrita
-        ADMIN   // leitura + escrita + gerenciar chaves
+        READ,
+        WRITE,
+        ADMIN
     }
 }

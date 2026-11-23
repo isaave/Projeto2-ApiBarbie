@@ -1,8 +1,10 @@
 package com.barbie.dreamworld_api.versioning;
 
+import com.barbie.dreamworld_api.exceptions.ErrorJsonWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -33,12 +35,8 @@ public class ApiVersionInterceptor implements HandlerInterceptor {
         }
 
         if (!SUPPORTED.contains(version.toLowerCase())) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write(
-                "{\"status\":400,\"error\":\"Bad Request\",\"message\":\"Versão inválida: '"
-                + version + "'. Versões suportadas: v1, v2.\"}"
-            );
+            ErrorJsonWriter.write(response, request, HttpStatus.BAD_REQUEST,
+                    "Versão inválida: '" + version + "'. Versões suportadas: v1, v2.");
             return false;
         }
 

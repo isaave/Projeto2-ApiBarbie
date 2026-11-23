@@ -1,5 +1,6 @@
 package com.barbie.dreamworld_api.ratelimit;
 
+import com.barbie.dreamworld_api.exceptions.ErrorJsonWriter;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.FilterChain;
@@ -8,12 +9,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -30,6 +33,7 @@ import java.util.Set;
  */
 @Slf4j
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
@@ -41,6 +45,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     );
 
     private final RateLimitConfig rateLimitConfig;
+
+    /**
+     * Só confia em X-Forwarded-For quando o deploy declara explicitamente que
+     * existe um proxy reverso de confiança (Render). Por padrão, usa remoteAddr.
+     */
+    @Value("${app.trust-proxy-headers:false}")
+    private boolean trustProxyHeaders;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -69,27 +80,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        long retryAfter = probe.getNanosToWaitForRefill() / 1_000_000_000L;
+        long retryAfter = Math.max(1,
+                (probe.getNanosToWaitForRefill() + 999_999_999L) / 1_000_000_000L);
         log.warn("Rate limit excedido — ip={} method={} retryAfter={}s",
                 ip, request.getMethod(), retryAfter);
 
-        response.setStatus(429);
-        response.setContentType("application/json;charset=UTF-8");
         response.setHeader("Retry-After", String.valueOf(retryAfter));
         response.setHeader("X-Rate-Limit-Retry-After-Seconds", String.valueOf(retryAfter));
-
-        String body = String.format(
-            "{\"timestamp\":\"%s\",\"status\":429,\"error\":\"Too Many Requests\"," +
-            "\"message\":\"Limite de requisições excedido. Tente novamente em %d segundo(s).\",\"path\":\"%s\"}",
-            Instant.now(), retryAfter, request.getRequestURI()
-        );
-        response.getWriter().write(body);
+        ErrorJsonWriter.write(response, request, HttpStatus.TOO_MANY_REQUESTS,
+                "Limite de requisições excedido. Tente novamente em " + retryAfter + " segundo(s).");
     }
 
     private String resolveIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank())
-            return forwarded.split(",")[0].trim();
+        if (trustProxyHeaders) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                return forwarded.split(",")[0].trim();
+            }
+        }
         return request.getRemoteAddr();
     }
 }

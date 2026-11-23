@@ -1,5 +1,6 @@
 package com.barbie.dreamworld_api.apikey;
 
+import com.barbie.dreamworld_api.exceptions.BusinessException;
 import com.barbie.dreamworld_api.exceptions.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,10 +36,10 @@ public class ApiKeyController {
 
                     Use o valor retornado no campo `apiKey` dentro do header `X-API-Key`.
 
-                    Níveis de acesso:
+                    Níveis de acesso nesta rota pública:
                     READ  → permite apenas consultas GET
-                    WRITE → permite consultas e alterações
-                    ADMIN → permite acesso completo e revogação de chaves
+                    WRITE → permite consultas e alterações (padrão)
+                    ADMIN → NÃO é permitido aqui (restrito ao console administrativo)
                     """
     )
     @ApiResponses({
@@ -72,18 +73,26 @@ public class ApiKeyController {
     })
     @PostMapping
     public ResponseEntity<ApiKeyResponse> generate(@Valid @RequestBody ApiKeyRequest req) {
+        // Esta rota é pública: nunca pode criar ADMIN. Quem precisar revogar
+        // chaves deve receber uma chave ADMIN pelo console administrativo.
+        ApiKey.AccessLevel nivel = req.getAccessLevel() == null
+                ? ApiKey.AccessLevel.WRITE
+                : req.getAccessLevel();
+
+        if (nivel == ApiKey.AccessLevel.ADMIN) {
+            throw new BusinessException(
+                    "Não é possível criar chaves ADMIN pela rota pública. Use READ ou WRITE.");
+        }
+
         ApiKey entity = new ApiKey();
         entity.setOwner(req.getOwner());
-
-        if (req.getAccessLevel() != null) {
-            entity.setAccessLevel(req.getAccessLevel());
-        }
+        entity.setAccessLevel(nivel);
 
         ApiKey saved = apiKeyRepository.save(entity);
 
         return ResponseEntity
                 .created(URI.create("/api/auth/api-keys/" + saved.getId()))
-                .body(toResponse(saved));
+                .body(toResponse(saved, true));
     }
 
     @Operation(
@@ -112,7 +121,9 @@ public class ApiKeyController {
     @GetMapping
     public ResponseEntity<List<ApiKeyResponse>> listAll() {
         return ResponseEntity.ok(
-                apiKeyRepository.findAll().stream().map(this::toResponse).toList()
+                apiKeyRepository.findAll().stream()
+                        .map(k -> toResponse(k, false))
+                        .toList()
         );
     }
 
@@ -149,7 +160,7 @@ public class ApiKeyController {
             @PathVariable Long id
     ) {
         return apiKeyRepository.findById(id)
-                .map(k -> ResponseEntity.ok(toResponse(k)))
+                .map(k -> ResponseEntity.ok(toResponse(k, false)))
                 .orElseThrow(() -> new ResourceNotFoundException("ApiKey", id));
     }
 
@@ -195,13 +206,13 @@ public class ApiKeyController {
 
         key.setActive(false);
 
-        return ResponseEntity.ok(toResponse(apiKeyRepository.save(key)));
+        return ResponseEntity.ok(toResponse(apiKeyRepository.save(key), false));
     }
 
-    private ApiKeyResponse toResponse(ApiKey k) {
+    private ApiKeyResponse toResponse(ApiKey k, boolean revelarChave) {
         return new ApiKeyResponse(
                 k.getId(),
-                k.getKeyValue(),
+                revelarChave ? k.getPlainValue() : null,
                 k.getOwner(),
                 k.getAccessLevel(),
                 k.isActive(),

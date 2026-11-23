@@ -1,5 +1,6 @@
 package com.barbie.dreamworld_api.apikey;
 
+import com.barbie.dreamworld_api.exceptions.ErrorJsonWriter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,11 +9,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 
@@ -34,7 +35,7 @@ import java.util.Set;
  */
 @Slf4j
 @Component
-@Order(1)
+@Order(2)
 @RequiredArgsConstructor
 public class ApiKeyFilter extends OncePerRequestFilter {
 
@@ -76,16 +77,18 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
         // 1. Header ausente
         if (rawKey == null || rawKey.isBlank()) {
-            reject(response, request, 401,
+            reject(response, request, HttpStatus.UNAUTHORIZED,
                    "Header X-API-Key ausente. Gere uma chave em POST /api/auth/api-keys.");
             return;
         }
 
-        // 2. Chave inválida ou revogada
-        Optional<ApiKey> opt = apiKeyRepository.findByKeyValueAndActiveTrue(rawKey);
+        // 2. Chave inválida ou revogada — comparamos apenas o hash
+        Optional<ApiKey> opt = apiKeyRepository.findByKeyValueAndActiveTrue(
+                ApiKeyHasher.hash(rawKey.strip()));
         if (opt.isEmpty()) {
-            log.warn("X-API-Key inválida/revogada — path={} key={}", path, rawKey);
-            reject(response, request, 401, "X-API-Key inválida ou revogada.");
+            log.warn("X-API-Key inválida/revogada — path={} key={}",
+                    path, ApiKeyHasher.mask(rawKey));
+            reject(response, request, HttpStatus.UNAUTHORIZED, "X-API-Key inválida ou revogada.");
             return;
         }
 
@@ -95,7 +98,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         // 3. READ tenta fazer escrita → 403
         if (level == ApiKey.AccessLevel.READ) {
             log.warn("Acesso negado — chave READ tentou {} {}", method, path);
-            reject(response, request, 403,
+            reject(response, request, HttpStatus.FORBIDDEN,
                    "Sua chave tem nível READ e não pode realizar operações de escrita.");
             return;
         }
@@ -105,7 +108,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
                 && method.equals("DELETE")
                 && path.startsWith("/api/auth/api-keys/")) {
             log.warn("Acesso negado — chave WRITE tentou revogar outra chave");
-            reject(response, request, 403,
+            reject(response, request, HttpStatus.FORBIDDEN,
                    "Apenas chaves com nível ADMIN podem revogar outras chaves.");
             return;
         }
@@ -117,14 +120,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
     private void reject(HttpServletResponse response,
                         HttpServletRequest  request,
-                        int status, String message) throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json;charset=UTF-8");
-        String error = status == 401 ? "Unauthorized" : "Forbidden";
-        String body = String.format(
-            "{\"timestamp\":\"%s\",\"status\":%d,\"error\":\"%s\",\"message\":\"%s\",\"path\":\"%s\"}",
-            Instant.now(), status, error, message, request.getRequestURI()
-        );
-        response.getWriter().write(body);
+                        HttpStatus status, String message) throws IOException {
+        ErrorJsonWriter.write(response, request, status, message);
     }
 }

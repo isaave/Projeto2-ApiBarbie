@@ -1,114 +1,213 @@
-# Barbie Dreamworld API — Assistente de Estilo (IA Generativa)
+# Barbie Dreamworld API — Assistente de Estilo com IA Generativa
 
-API de gerenciamento do universo **Barbie Dreamworld** (Barbies, Profissões,
-Dreamhouses, Acessórios e Eventos), estendida com uma funcionalidade de
-**Geração de Conteúdo via IA generativa (Google Gemini)**: o **Assistente de
-Estilo**, que sugere um look completo para uma Barbie combinando os dados
-reais dela (profissão, coleção, acessórios já cadastrados) com a ocasião
-informada pelo usuário.
+API REST para gerenciar o universo **Barbie Dreamworld** (Barbies, Profissões,
+Dreamhouses, Acessórios e Eventos), estendida com o **Assistente de Estilo**:
+um módulo de **Geração de Conteúdo com IA generativa (Google Gemini)** que cria
+looks completos a partir dos dados reais cadastrados, devolve dicas de
+refinamento e produz uma ilustração vetorial da Barbie com aquele look.
 
-Categoria do trabalho: **Geração de Conteúdo**.
+**Categoria do trabalho:** Geração de Conteúdo (Trabalho 2 — Aplicação Web
+Completa com IA em Produção).
 
 ---
 
 ## Sumário
 
-- [Como rodar o projeto](#como-rodar-o-projeto)
+- [Arquitetura](#arquitetura)
+- [URLs públicas](#urls-públicas)
+- [Rodando localmente](#rodando-localmente)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Autenticação (X-API-Key)](#autenticação-x-api-key)
-- [Rotas da API](#rotas-da-api)
-- [Assistente de Estilo — detalhes](#assistente-de-estilo--detalhes)
-- [Engenharia de prompt](#engenharia-de-prompt)
-- [Tratamento de erros e resiliência](#tratamento-de-erros-e-resiliência)
-- [Frontend](#frontend)
+- [Autenticação](#autenticação)
+- [Rotas principais](#rotas-principais)
+- [Assistente de Estilo](#assistente-de-estilo)
+- [Engenharia de prompt e segurança da IA](#engenharia-de-prompt-e-segurança-da-ia)
+- [Resiliência e tratamento de erros](#resiliência-e-tratamento-de-erros)
+- [Testes](#testes)
+- [Deploy](#deploy)
+- [Limitações conhecidas](#limitações-conhecidas)
 
 ---
 
-## Como rodar o projeto
+## Arquitetura
 
-Pré-requisitos: **Java 25** e **Maven** (ou use o wrapper `./mvnw` se estiver
-presente).
+```
+┌──────────────────────────┐        HTTPS / JSON        ┌──────────────────────────────┐
+│  Frontend (GitHub Pages) │ ──────────────────────────▶ │  API Spring Boot 4 (Render)  │
+│  index.html (single file)│ ◀────────────────────────── │  Docker multi-stage, Java 25 │
+└──────────────────────────┘        X-API-Key            └──────────────┬───────────────┘
+                                                                       │
+                        ┌──────────────────────────────────────────────┼────────────────────┐
+                        ▼                                              ▼                    ▼
+              ┌──────────────────┐                        ┌────────────────────┐  ┌──────────────────┐
+              │ H2 (em memória)  │                        │ Gemini (texto)     │  │ Gemini (imagem)  │
+              │ dados de exemplo │                        │ generateContent    │  │ interactions API │
+              └──────────────────┘                        └─────────┬──────────┘  └─────────┬────────┘
+                                                                    │  429 / sem cota       │
+                                                                    ▼                       ▼
+                                                         ┌────────────────────────────────────┐
+                                                         │ IlustracaoLookClient (SVG local)  │
+                                                         │ determinístico, sem rede externa  │
+                                                         └────────────────────────────────────┘
+```
+
+Camadas relevantes do código:
+
+| Pacote | Responsabilidade |
+|---|---|
+| `controllers` | CRUD das 5 entidades + rotas de autenticação |
+| `apikey`, `ratelimit` | Segurança: chaves com hash SHA-256, limites por IP |
+| `ia.controller`, `ia.service` | Orquestração do Assistente de Estilo |
+| `ia.client` | `GeminiClient` (texto), `GeminiImageClient` (foto), `IlustracaoLookClient` (SVG) |
+| `ia.dto` | Contratos de entrada/saída com schemas e exemplos no Swagger |
+| `infrastructure` | CORS, OpenAPI e carga inicial do banco |
+| `exceptions` | Envelope de erro único + escrita JSON nos filtros |
+
+---
+
+## URLs públicas
+
+| Recurso | URL |
+|---|---|
+| API (base) | `https://projeto2-apibarbie.onrender.com` |
+| Swagger UI | `https://projeto2-apibarbie.onrender.com/swagger-ui/index.html` |
+| OpenAPI JSON | `https://projeto2-apibarbie.onrender.com/api-docs` |
+| Healthcheck | `https://projeto2-apibarbie.onrender.com/actuator/health` |
+| Frontend | `https://isaave.github.io/Front_apibarbie/` |
+| Repositório da API | `https://github.com/isaave/Projeto2-ApiBarbie` |
+| Repositório do frontend | `https://github.com/isaave/Front_apibarbie` |
+
+---
+
+## Rodando localmente
+
+### Pré-requisitos
+
+- **JDK 25** (o Java 27 padrão de algumas máquinas quebra o Lombok/compilador).
+- Maven instalado (ou use `./mvnw`).
+- Uma chave gratuita do [Google AI Studio](https://aistudio.google.com/apikey).
+
+### Passo a passo
 
 ```bash
-# 1. Defina a chave da IA generativa (veja como gerar em "Variáveis de ambiente")
+# 1. Entre na pasta da API
+cd "/Users/isabellaavelina/Downloads/ApiDreamWord---with-a-personal-outfit-assistant-main"
+
+# 2. Use o JDK 25 (ajuste o caminho se o seu for diferente)
+export JAVA_HOME=/Users/isabellaavelina/Library/Java/JavaVirtualMachines/ms-25.0.3/Contents/Home
+
+# 3. Configure a chave da IA (nunca commite este valor)
 export GEMINI_API_KEY="sua-chave-aqui"
 
-# 2. Rode a aplicação
+# 4. (Opcional) copie o modelo de variáveis e ajuste o que precisar
+cp .env.example .env        # o .env já está no .gitignore
+
+# 5. Compile, rode os testes e gere o jar
+mvn clean package
+
+# 6. Suba a aplicação
 mvn spring-boot:run
+# Alternativa: java -jar target/dreamworld-api-0.0.1-SNAPSHOT.jar
 ```
 
 A API sobe em `http://localhost:8080`.
 
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- Console H2 (banco em memória): `http://localhost:8080/h2-console`
+- Swagger: `http://localhost:8080/swagger-ui/index.html`
+- Health: `http://localhost:8080/actuator/health`
 
-O banco é H2 em memória — os dados são recriados a cada restart (ver
-`infrastructure/LoadDatabase.java` para os dados de exemplo carregados).
+### Teste rápido de ponta a ponta
+
+```bash
+# 1) Gerar uma chave WRITE (rota pública)
+curl -s -X POST http://localhost:8080/api/auth/api-keys \
+  -H 'Content-Type: application/json' \
+  -d '{"owner":"Teste Local","accessLevel":"WRITE"}'
+# Copie o campo "apiKey" da resposta — ele só aparece aqui.
+
+# 2) Consultar dados de exemplo (GET é público)
+curl -s http://localhost:8080/api/barbies
+
+# 3) Gerar um look com IA (substitua a chave)
+curl -s -X POST http://localhost:8080/api/ia/assistente-estilo \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: <CHAVE_AQUI>' \
+  -d '{"barbieId":1,"ocasiao":"festa no jardim","preferencias":"tons pastel"}'
+```
+
+O campo `imagem.dataUrl` vem como `data:image/svg+xml;base64,...` quando o
+gerador de fotos do Gemini não tem cota (comportamento normal no tier gratuito).
+Basta colar esse valor na barra do navegador para ver a ilustração.
 
 ---
 
 ## Variáveis de ambiente
 
-| Variável          | Obrigatória | Padrão                | Descrição                                                                 |
-|-------------------|:-----------:|------------------------|----------------------------------------------------------------------------|
-| `GEMINI_API_KEY`  | Sim*        | (vazio)                | Chave da API do Gemini. Gere uma gratuitamente no [Google AI Studio](https://aistudio.google.com/apikey). |
-| `GEMINI_MODEL`    | Não         | `gemini-3.6-flash`     | Modelo do Gemini usado. Veja os modelos disponíveis atualmente em [ai.google.dev/gemini-api/docs/models](https://ai.google.dev/gemini-api/docs/models) — o Google descontinua modelos com poucas semanas de aviso. |
+Todas as variáveis abaixo estão listadas em `.env.example`. Valores padrão
+permitem subir a aplicação sem configurar nada além de `GEMINI_API_KEY`.
 
-\* Só é obrigatória para usar o endpoint `/api/ia/assistente-estilo`. O resto
-da API funciona normalmente sem ela. Se a chave não estiver configurada, o
-endpoint responde `503` com uma mensagem clara em vez de quebrar.
+| Variável | Obrigatória | Padrão | Descrição |
+|---|:---:|---|---|
+| `GEMINI_API_KEY` | Sim (IA) | *(vazio)* | Chave do Google AI Studio. Sem ela, os endpoints de IA respondem `503` com mensagem clara; o CRUD continua funcionando. |
+| `GEMINI_MODEL` | Não | `gemini-3.6-flash` | Modelo de texto. Confira a lista atual em [ai.google.dev](https://ai.google.dev/gemini-api/docs/models) — o Google descontinua modelos com pouco aviso. |
+| `GEMINI_IMAGE_MODEL` | Não | `gemini-nano-banana-2.1` | Modelo de imagem usado na `Interactions API`. |
+| `GEMINI_TIMEOUT_MS` | Não | `30000` | Timeout da chamada de texto, em ms. |
+| `GEMINI_IMAGE_TIMEOUT_MS` | Não | `90000` | Timeout da chamada de imagem, em ms. |
+| `CORS_ALLOWED_ORIGINS` | Não | `https://isaave.github.io` | Origens permitidas, separadas por vírgula. **Nunca use `*`**: a API usa `allowCredentials(true)`. |
+| `OPENAPI_SERVER_URL` | Não | `https://projeto2-apibarbie.onrender.com` | URL exibida no botão “Execute” do Swagger. |
+| `PORT` | Não | `8080` | Porta HTTP. O Render injeta `10000` automaticamente. |
+| `APP_TRUST_PROXY_HEADERS` | Não | `false` | Só `true` atrás de proxy reverso confiável (Render). Controla se `X-Forwarded-For` é usado no rate limit. |
+| `RATE_LIMIT_READ_CAPACITY` | Não | `10` | Requisições GET por IP na janela. |
+| `RATE_LIMIT_WRITE_CAPACITY` | Não | `5` | Requisições de escrita por IP na janela. |
+| `RATE_LIMIT_WINDOW_SECONDS` | Não | `60` | Duração da janela do rate limit, em segundos. |
+| `H2_CONSOLE_ENABLED` | Não | `false` | Habilita `/h2-console` apenas para diagnóstico local. |
+| `JPA_SHOW_SQL` | Não | `false` | Loga SQL — útil ao depurar, ruim em produção. |
+| `JAVA_TOOL_OPTIONS` | Não | *(vazio)* | Ajustes de JVM usados pelo Docker no Render (`-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0`). |
 
-**A chave nunca é commitada no repositório** — ela é lida via
-`${GEMINI_API_KEY:}` em `application.properties` e o `.gitignore` já
-ignora arquivos `.env`.
-
----
-
-## Autenticação (X-API-Key)
-
-A API já possui seu próprio esquema de segurança (não é algo criado para
-este trabalho, mas se aplica também ao endpoint de IA):
-
-- `GET` são públicos.
-- `POST` / `PUT` / `PATCH` / `DELETE` exigem o header `X-API-Key`, com nível
-  `WRITE` ou `ADMIN`.
-- Gere uma chave em `POST /api/auth/api-keys` (rota pública).
-
-Como o Assistente de Estilo é um `POST`, ele também é protegido por esse
-mesmo mecanismo e sujeito ao rate limiting global da API (5 req/min por IP
-para métodos de escrita) — reaproveitando a infraestrutura de segurança já
-existente em vez de duplicar lógica.
+> **Nunca commite chaves.** O `.gitignore` cobre `.env`, `._*`, `__MACOSX/` e
+> `*.log`. O GitHub Push Protection bloqueia segredos acidentais.
 
 ---
 
-## Rotas da API
+## Autenticação
 
-| Recurso                     | Rotas                                                                 |
-|------------------------------|------------------------------------------------------------------------|
-| Barbies                     | `GET/POST /api/barbies`, `GET/PUT/DELETE /api/barbies/{id}`, `GET /api/barbies/search` |
-| Profissões                  | `GET/POST /api/profissoes`, `GET/PUT/DELETE /api/profissoes/{id}`      |
-| Dreamhouses                 | `GET/POST /api/dreamhouses`, `GET/PUT/DELETE /api/dreamhouses/{id}`    |
-| Acessórios                  | `GET/POST /api/acessorios`, `GET/PUT/DELETE /api/acessorios/{id}`      |
-| Eventos                     | `GET/POST /api/eventos`, `GET/PUT/DELETE /api/eventos/{id}`            |
-| Chaves de API               | `POST /api/auth/api-keys`, `GET /api/auth/api-keys`, `DELETE /api/auth/api-keys/{id}` |
-| **Assistente de Estilo (IA)** | **`POST /api/ia/assistente-estilo`**                                  |
-| **Dicas aprimoradas (IA)**    | **`POST /api/ia/assistente-estilo/dicas`**                            |
+- `GET` é público.
+- `POST` / `PUT` / `PATCH` / `DELETE` exigem o header `X-API-Key`.
+- Gere uma chave em `POST /api/auth/api-keys` (rota pública):
 
-A documentação completa e interativa de todas as rotas (schemas, exemplos,
-códigos de erro) está no Swagger UI.
+```json
+{ "owner": "Frontend Barbie Dreamworld", "accessLevel": "WRITE" }
+```
+
+- `ADMIN` **não** pode ser criado pela rota pública (resposta `422`).
+- A chave completa só aparece na criação. `GET /api/auth/api-keys` devolve
+  máscara/`apiKey: null`. Internamente só o hash SHA-256 é persistido.
+- Revogação (`DELETE /api/auth/api-keys/{id}`) exige `ADMIN`.
+- O frontend gera uma chave `WRITE` automaticamente e a guarda em
+  `localStorage.barbie_api_key`, renovando-a após um `401`.
 
 ---
 
-## Assistente de Estilo — detalhes
+## Rotas principais
 
-**`POST /api/ia/assistente-estilo`**
+| Recurso | Rotas |
+|---|---|
+| Barbies | `GET/POST /api/barbies`, `GET/PUT/DELETE /api/barbies/{id}`, `GET /api/barbies/search` |
+| Profissões | `GET/POST /api/profissoes`, `GET/PUT/DELETE /api/profissoes/{id}` |
+| Dreamhouses | `GET/POST /api/dreamhouses`, `GET/PUT/DELETE /api/dreamhouses/{id}` |
+| Acessórios | `GET/POST /api/acessorios`, `GET/PUT/DELETE /api/acessorios/{id}` |
+| Eventos | `GET/POST /api/eventos`, `GET/PUT/DELETE /api/eventos/{id}` |
+| Chaves | `POST /api/auth/api-keys`, `GET /api/auth/api-keys`, `DELETE /api/auth/api-keys/{id}` |
+| **IA — look** | **`POST /api/ia/assistente-estilo`** |
+| **IA — dicas** | **`POST /api/ia/assistente-estilo/dicas`** |
+| **IA — imagem** | **`POST /api/ia/assistente-estilo/regerar-imagem`** |
 
-Gera, via IA generativa, uma sugestão de look para uma Barbie cadastrada,
-considerando a profissão dela, a coleção, a dreamhouse e os acessórios que
-ela já possui, para uma ocasião informada (um evento já cadastrado **ou**
-uma descrição livre).
+Documentação completa (schemas, exemplos e códigos de erro) no Swagger UI.
 
-Requisição:
+---
+
+## Assistente de Estilo
+
+### 1. Gerar o look — `POST /api/ia/assistente-estilo`
+
 ```json
 {
   "barbieId": 1,
@@ -117,168 +216,132 @@ Requisição:
   "preferencias": "Gosto de tons pastel e prefiro evitar saltos muito altos"
 }
 ```
-- `barbieId`: obrigatório.
-- Informe **`eventoId`** (evento já cadastrado) **ou** **`ocasiao`** (texto
-  livre, até 300 caracteres). Se nenhum dos dois vier, a API responde `422`.
-- `preferencias`: opcional, até 300 caracteres.
 
-Resposta (`200`):
-```json
-{
-  "barbieId": 1,
-  "nomeBarbie": "Barbie Cientista",
-  "ocasiao": "Evento cadastrado \"Gala das Estrelas\"...",
-  "tituloLook": "Look Laboratório Glamouroso",
-  "resumo": "Um visual que une sofisticação e praticidade...",
-  "paletaCores": ["Rosa pastel", "Branco", "Prateado"],
-  "itensSugeridos": [
-    { "nome": "Sandália prateada com salto bloco", "categoria": "Calçado", "motivo": "..." }
-  ],
-  "acessoriosDoAcervoRecomendados": ["Bolsa holográfica"]
-}
-```
+- Informe **`eventoId`** **ou** **`ocasiao`** (texto livre, até 300 chars).
+- Resposta `200`: `tituloLook`, `resumo`, `paletaCores`, `itensSugeridos`,
+  `acessoriosDoAcervoRecomendados`, `promptImagem`, `imagem` e, quando o
+  gerador de fotos falha, `avisoImagem` + `imagem.dataUrl` em SVG.
 
----
+### 2. Refinar com dicas — `POST /api/ia/assistente-estilo/dicas`
 
-## Engenharia de prompt
+Recebe o look já gerado como contexto e devolve de 3 a 5 dicas práticas
+(caimento, cores, calçado, acessórios, cabelo) mais um `toqueFinal`.
+O campo `foco` permite pedir, por exemplo, dicas só de calçado.
 
-O prompt (montado em `AssistenteEstiloService.montarPrompt`) segue estas
-diretrizes:
+### 3. Outra imagem do mesmo look — `POST /api/ia/assistente-estilo/regerar-imagem`
 
-- **Contexto real e específico**: nome, coleção, profissão, dreamhouse e a
-  lista exata de acessórios que a Barbie já possui são injetados no prompt
-  — a IA não "inventa" o contexto, ela recebe dados reais do banco.
-- **Delimitação de comportamento**: regras explícitas no prompt (responder
-  em PT-BR, nunca citar marcas reais, não fugir do tema, limite de 5 itens
-  sugeridos e 4 cores).
-- **Redução de alucinação nos dados reais**: a IA é instruída a só citar,
-  em `acessoriosDoAcervoRecomendados`, itens que existam **exatamente** na
-  lista de acessórios informada.
-- **Saída estruturada garantida**: em vez de pedir "responda em JSON" no
-  texto do prompt (frágil — o modelo pode envolver em ```json ou adicionar
-  texto solto), a requisição usa o campo nativo do Gemini
-  `generationConfig.responseMimeType = "application/json"` **com um
-  `responseSchema` explícito** (ver `AssistenteEstiloService.buildResponseSchema`
-  e `GeminiClient`). Isso resolve de forma robusta o parsing da resposta da
-  IA — o próprio provedor garante a estrutura do JSON antes de ele chegar
-  na aplicação. Mesmo assim, o parsing em `parseResposta` é defensivo
-  (campos ausentes têm valores padrão) para o caso de uma resposta parcial.
+Mantém o texto intacto e devolve uma nova variação determinística da
+ilustração: pose, penteado e cenário mudam, mas **cores, peças e acessórios
+continuam sendo exatamente os do look**. Não consome Gemini nem serviço
+externo. O campo `variacaoImagem` (0–1000) controla a variação.
+
+### Por que a imagem é um SVG e não uma foto aleatória
+
+O tier gratuito do Gemini não tem cota de geração de imagem (`429`), e o
+fallback anterior baseado em geradores públicos devolvia imagens sem relação
+com o look. Agora o backend desenha a Barbie localmente a partir das **cores,
+itens e acessórios do próprio look**, garantindo coerência entre texto e imagem
+e eliminando dependência de cota externa. O frontend exibe o aviso
+`avisoImagem` para deixar isso transparente ao usuário.
 
 ---
 
-## Tratamento de erros e resiliência
+## Engenharia de prompt e segurança da IA
 
-| Cenário                                              | Status HTTP | Onde é tratado |
-|-------------------------------------------------------|:-----------:|----------------|
-| `barbieId` inexistente / `eventoId` inexistente        | 404         | `ResourceNotFoundException` |
-| Nem `eventoId` nem `ocasiao` informados                | 422         | `BusinessException` |
-| Corpo da requisição inválido (campo faltando, etc.)    | 400         | `MethodArgumentNotValidException` (Bean Validation) |
-| `GEMINI_API_KEY` não configurada                       | 503         | `GeminiClient` — falha rápido, sem tentar chamar a IA |
-| Timeout ou API do Gemini fora do ar (5xx)              | 503         | `GeminiClient` — 1 retentativa automática com pequeno atraso antes de desistir |
-| Rate limit do Gemini (429)                             | 429         | `GeminiClient` — repassado ao cliente sem retry (evita piorar o rate limit) |
-| IA rejeita a requisição / bloqueio de segurança (4xx)  | 502         | `GeminiClient` |
-| Resposta da IA vazia ou em formato inesperado          | 502         | `AssistenteEstiloService.parseResposta` |
-| Chave de API do projeto (`X-API-Key`) ausente/inválida | 401/403     | `ApiKeyFilter` (mecanismo já existente na API, reaproveitado) |
-| Muitas requisições do mesmo IP                         | 429         | `RateLimitFilter` (mecanismo já existente na API, reaproveitado) |
-
-Todos os erros seguem o mesmo envelope `ErrorResponse` já usado no resto da
-API (`timestamp`, `status`, `error`, `message`, `path`), então o frontend
-trata o erro de IA exatamente como trata qualquer outro erro da API.
-
-### Dicas aprimoradas para um look já gerado
-
-**`POST /api/ia/assistente-estilo/dicas`**
-
-Recebe como contexto o look que já foi gerado (título, resumo, paleta, itens
-e acessórios) e devolve dicas práticas da IA para refiná-lo **na mesma
-ocasião** — caimento, cores, calçado, cabelo, acessórios e um toque final.
-O look original não é recriado. O campo opcional `foco` permite pedir, por
-exemplo, dicas só de calçado e cabelo.
-
-No frontend, cada look gerado traz o botão **💡 Dicas aprimoradas**. Também é
-possível escrever no chat algo como _"melhore esse look, foque no calçado"_
-que a estilista refina o último look em vez de criar outro.
+- **Contexto real:** nome, coleção, profissão, dreamhouse e a lista exata de
+  acessórios da Barbie são injetados no prompt — a IA não inventa o catálogo.
+- **Escopo e tom:** `systemInstruction` fixa português do Brasil, tom alegre e
+  elegante, proibição de marcas reais e conteúdo ofensivo/sexual/político.
+- **Saída estruturada:** `responseMimeType=application/json` +
+  `responseSchema` com `maxItems` nos arrays. O parsing defensivo cobre
+  respostas parciais.
+- **Custo/latência:** `thinkingConfig.thinkingLevel=minimal`, limites de
+  `maxOutputTokens` e verificação de `finishReason` (`MAX_TOKENS`/`SAFETY`).
+- **Anti-alucinação:** acessórios recomendados são filtrados no servidor
+  contra o acervo real da Barbie antes de chegar ao cliente.
+- **Prompt de imagem herda o look:** o visual vem do `promptImagem` gerado
+  pela própria IA, com a restrição explícita “no text, no logos, no
+  watermarks”.
 
 ---
 
-## Frontend
+## Resiliência e tratamento de erros
 
-O frontend estático (`Front - ApiBarbie/index.html`) tem uma aba
-**✨ Assistente**, onde é possível escolher uma Barbie e um evento (ou
-digitar uma ocasião livre), disparar a geração e ver o resultado formatado,
-com feedback de carregamento enquanto a IA responde e mensagens de erro
-amigáveis em caso de falha. O frontend está num **repositório separado** e é
-publicado como Static Site em `https://isaave.github.io/Front_apibarbie/`.
+| Cenário | Status | Tratamento |
+|---|:---:|---|
+| `barbieId`/`eventoId` inexistente | 404 | `ResourceNotFoundException` |
+| Nem `eventoId` nem `ocasiao` | 422 | `BusinessException` |
+| Corpo inválido (Bean Validation) | 400 | `MethodArgumentNotValidException` |
+| `ADMIN` pedido na rota pública | 422 | `ApiKeyController` |
+| `X-API-Key` ausente/inválida | 401 | `ApiKeyFilter` |
+| Chave sem permissão | 403 | `ApiKeyFilter` |
+| Muitas requisições do mesmo IP | 429 (+ `Retry-After`) | `RateLimitFilter` |
+| `GEMINI_API_KEY` vazia | 503 | `GeminiClient` (falha rápido) |
+| Timeout / 5xx do Gemini | 503 | 1 retentativa com 500 ms |
+| Rate limit do Gemini | 429 | Sem retry, falha rápido |
+| Resposta de IA inválida | 502 | `parseResposta` / `extrairTexto` |
+| Sem cota de imagem | 200 | Ilustração SVG + `avisoImagem` |
+
+Todos os erros usam o envelope único `timestamp`, `status`, `error`, `message`,
+`path`, inclusive os erros lançados dentro dos filtros (`ErrorJsonWriter`).
 
 ---
 
-## Deploy no Render (backend)
-
-Este repositório contém um `render.yaml` (Blueprint) e um `Dockerfile`
-multi-stage (Java 25). O Render **não tem runtime Java nativo**, por isso o
-deploy é feito via Docker.
-
-### 1. Preparar o repositório
+## Testes
 
 ```bash
-git init
-git add .
-git commit -m "Trabalho 2 - API com IA generativa"
-git remote add origin <URL_DO_SEU_REPO>
-git push -u origin main
+export JAVA_HOME=/Users/isabellaavelina/Library/Java/JavaVirtualMachines/ms-25.0.3/Contents/Home
+mvn test
 ```
 
-### 2. Criar a API key do Render
+Cobertura crítica incluída:
 
-Em https://dashboard.render.com/u/settings#api-keys e exporte:
+- `ApiKeyHasherTest` — hash determinístico de 64 hex e máscara sem vazar a chave.
+- `ApiKeySecurityIntegrationTest` — rota pública não cria `ADMIN`, a chave bruta
+  nunca aparece em consultas, a chave gerada autentica escrita e sem chave o
+  filtro barra com `401`.
+- `IlustracaoLookClientTest` — SVG válido em `data:` URL, variações diferentes,
+  resiliência a look nulo.
+- `DreamworldApiApplicationTests` — sobe o contexto Spring.
+
+---
+
+## Deploy
+
+### Backend (Render)
+
+O repositório contém `render.yaml` e um `Dockerfile` multi-stage (build com
+JDK 25, runtime enxuto). O Render não tem runtime Java nativo, por isso o
+deploy é via Docker.
+
+1. Conecte o repositório em **New → Web Service → From a Git repository**, ou
+   aplique o Blueprint (`New → Blueprint`). O nome do serviço é
+   `projeto2-apibarbie`, preservando a URL pública.
+2. No dashboard, preencha os segredos `GEMINI_API_KEY` e
+   `CORS_ALLOWED_ORIGINS`. Confira também `APP_TRUST_PROXY_HEADERS=true`.
+3. Valide:
 
 ```bash
-export RENDER_API_KEY="sua-key-aqui"
+curl -s https://projeto2-apibarbie.onrender.com/actuator/health
+curl -s https://projeto2-apibarbie.onrender.com/api-docs | grep promptImagem
 ```
 
-### 3. Aplicar o Blueprint
+### Frontend (GitHub Pages)
 
-No dashboard: **New → Blueprint → selecionar o repo**. O Render lê o
-`render.yaml` e cria o serviço web.
+Repositório separado `isaave/Front_apibarbie`, publicado em
+`https://isaave.github.io/Front_apibarbie/`. O `BASE` do `index.html` aponta
+para a API do Render. A chave é gerada automaticamente na primeira carga.
 
-Alternativamente, via API:
+---
 
-```bash
-curl -X POST https://api.render.com/v1/blueprints/render \
-  -H "Authorization: Bearer $RENDER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"repositoryUrl":"<URL_DO_SEU_REPO>","branch":"main"}'
-```
+## Limitações conhecidas
 
-### 4. Variáveis de ambiente no Render
-
-O Blueprint já declara as variáveis. No primeiro deploy, o Render pede os
-valores de `GEMINI_API_KEY` e `CORS_ALLOWED_ORIGINS` (marcados como
-`sync: false`). Preencha:
-
-| Variável | Valor |
-|---|---|
-| `GEMINI_API_KEY` | chave do Google AI Studio |
-| `CORS_ALLOWED_ORIGINS` | URL pública do frontend (ex.: `https://isaave.github.io`) |
-
-### 5. Verificar
-
-- Healthcheck: `GET https://projeto2-apibarbie.onrender.com/actuator/health`
-- Swagger: `https://projeto2-apibarbie.onrender.com/swagger-ui/index.html`
-- A API responde `503` no endpoint de IA se a chave não estiver configurada —
-  isso é esperado e indicado no corpo do erro.
-
-> **Nota sobre o plano Free**: o Render suspende serviços free após
-> inatividade e a primeira requisição pode demorar ~50 s. Para a apresentação,
-> use um plano pago (`0.5c-512mb` ou superior) ou acesse a URL pouco antes
-> da demo para "acordar" o serviço.
-
-### Segurança em produção
-
-- CORS controlado por `CORS_ALLOWED_ORIGINS`; no deploy público está configurado
-  como `*` para aceitar o frontend hospedado no GitHub Pages.
-- H2 Console desligado por padrão (`H2_CONSOLE_ENABLED=false`).
-- Chave da IA apenas em variável de ambiente; nunca no código.
-- Atenção: as rotas `POST/GET /api/auth/api-keys` ainda são públicas e
-  permitem criar chave `ADMIN`. Recomenda-se protegê-las antes da avaliação
-  final de segurança.
+- **H2 em memória:** dados e chaves são recriados a cada restart do Render.
+- **Plano free do Render:** suspende após inatividade; a primeira requisição
+  pode levar ~50 s. Para a apresentação, acesse a URL pouco antes ou use um
+  plano pago.
+- **Tier gratuito do Gemini:** não gera imagens. O sistema já degrada para SVG
+  determinístico, mas a geração de **texto** depende da cota do modelo —
+  configure uma chave ativa antes da banca.
+- **Sem persistência de chaves:** reiniciar a API invalida as chaves; o
+  frontend renova automaticamente.

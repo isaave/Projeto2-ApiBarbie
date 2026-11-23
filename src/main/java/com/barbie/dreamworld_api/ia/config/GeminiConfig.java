@@ -19,7 +19,7 @@ public class GeminiConfig {
     @Value("${gemini.base-url}")
     private String baseUrl;
 
-    @Value("${gemini.timeout-ms:15000}")
+    @Value("${gemini.timeout-ms:30000}")
     private int timeoutMs;
 
     @Value("${gemini.image-timeout-ms:90000}")

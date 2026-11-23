@@ -16,6 +16,6 @@ public class ApiKeyRequest {
     @Schema(description = "Nome do proprietário da chave", example = "App Frontend")
     private String owner;
 
-    @Schema(description = "Nível de acesso: READ, WRITE ou ADMIN (padrão: WRITE)", example = "WRITE")
+    @Schema(description = "Nível de acesso: READ ou WRITE (padrão: WRITE). ADMIN não é permitido nesta rota pública.", example = "WRITE")
     private ApiKey.AccessLevel accessLevel = ApiKey.AccessLevel.WRITE;
 }

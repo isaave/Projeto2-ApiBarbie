@@ -14,7 +14,7 @@ public class ApiKeyResponse {
     @Schema(description = "ID da chave", example = "1")
     private Long id;
 
-    @Schema(description = "Chave de API — guarde em local seguro",
+    @Schema(description = "Chave de API em texto claro — só é preenchida na criação; nulo em consultas",
             example = "a3f1c2d4-e5b6-7890-abcd-ef1234567890")
     private String apiKey;
 

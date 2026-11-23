@@ -1,7 +1,26 @@
-# Project exclude paths
+# Build
 /target/
-/.idea
+/build/
+*.jar
+*.war
 
-# Segredos locais (chave de API etc.) — nunca commitar
+# IDE
+/.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Segredos locais (nunca commitar)
 .env
 *.env
+!.env.example
+
+# Sistema operacional / arquivos temporários
+.DS_Store
+__MACOSX/
+**/__MACOSX/
+._*
+._*
+*.log
+*.tmp

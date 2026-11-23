@@ -1,6 +1,8 @@
 package com.barbie.dreamworld_api.ia.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -60,6 +62,8 @@ public class DicasLookRequest {
     @Size(max = 1000)
     private String promptImagem;
 
-    @Schema(description = "Índice da variação visual usada na imagem anterior, para gerar outra diferente")
+    @Schema(description = "Índice da variação visual usada na imagem anterior (0 a 1000)", example = "0")
+    @Min(value = 0, message = "A variação da imagem não pode ser negativa")
+    @Max(value = 1000, message = "A variação da imagem deve ser no máximo 1000")
     private Integer variacaoImagem;
 }

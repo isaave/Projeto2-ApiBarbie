@@ -17,10 +17,10 @@ import java.util.List;
  * Configuração global da documentação OpenAPI 3.1 / Swagger UI.
  *
  * Acesse a documentação interativa em:
- *   http://localhost:8080/swagger-ui.html
+ *   http://localhost:8080/swagger-ui/index.html
  *
  * Acesse o JSON da especificação em:
- *   http://localhost:8080/v3/api-docs
+ *   http://localhost:8080/api-docs
  */
 @Configuration
 public class OpenApiConfig {
@@ -72,9 +72,15 @@ public class OpenApiConfig {
                                 | 201    | Recurso criado                                           |
                                 | 204    | Operação concluída sem corpo de resposta                 |
                                 | 400    | Erro de validação nos campos (fieldErrors detalhado)     |
+                                | 401    | X-API-Key ausente, inválida ou revogada                   |
+                                | 403    | Chave sem permissão para a operação                      |
                                 | 404    | Recurso não encontrado                                   |
+                                | 405    | Método HTTP não suportado na rota                        |
                                 | 409    | Conflito de unicidade (ex: nome duplicado)               |
                                 | 422    | Violação de regra de negócio (ex: Dreamhouse ocupada)   |
+                                | 429    | Limite de requisições excedido (Retry-After)             |
+                                | 502    | Provedor de IA retornou resposta inválida                |
+                                | 503    | Serviço de IA indisponível ou sem chave configurada      |
                                 | 500    | Erro interno inesperado                                  |
 
                                 ---
@@ -110,7 +116,15 @@ public class OpenApiConfig {
                                 .name("Eventos")
                                 .description("Galas e eventos sociais do multiverso. Relacionamento N:N"
                                         + " — uma Barbie participa de vários eventos e um evento tem várias Barbies."
-                                        + " Gerencie inscrições via PUT/DELETE /eventos/{id}/participantes/{barbieId}.")
+                                        + " Gerencie inscrições via PUT/DELETE /eventos/{id}/participantes/{barbieId}."),
+                        new Tag()
+                                .name("Autenticação — API Keys")
+                                .description("Geração e gerenciamento das chaves de acesso Barbie Security."
+                                        + " A rota pública cria apenas chaves READ/WRITE; ADMIN é restrito."),
+                        new Tag()
+                                .name("Assistente de Estilo (IA)")
+                                .description("Sugestões de looks, dicas e ilustrações geradas a partir do acervo"
+                                        + " real da Barbie. Requer X-API-Key com nível WRITE.")
                 ));
     }
 }

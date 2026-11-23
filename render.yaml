@@ -1,11 +1,11 @@
 # Render Blueprint — Barbie Dreamworld API (backend)
-# O frontend está num repositório separado e é publicado como Static Site.
+# O frontend está num repositório separado e é publicado no GitHub Pages.
 
 services:
   - type: web
-    # Mantém o nome do serviço já existente para preservar a URL pública:
-    # https://minha-api-da-barbie-1.onrender.com
-    name: minha-api-da-barbie-1
+    # Nome/slug do serviço já existente — preserva a URL pública:
+    # https://projeto2-apibarbie.onrender.com
+    name: projeto2-apibarbie
     runtime: docker
     region: oregon
     plan: free
@@ -15,8 +15,8 @@ services:
       # Segredo: preenchido no dashboard do Render (nunca no repositório)
       - key: GEMINI_API_KEY
         sync: false
-      # URL do frontend (repo separado). Exemplo:
-      # https://front-apibarbie.onrender.com
+      # Origens explícitas do frontend separado, separadas por vírgula.
+      # Não usar "*" em produção: a API usa allowCredentials=true.
       - key: CORS_ALLOWED_ORIGINS
         sync: false
       - key: GEMINI_MODEL
@@ -31,3 +31,13 @@ services:
         value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
       - key: OPENAPI_SERVER_URL
         value: https://projeto2-apibarbie.onrender.com
+      # O Render termina TLS e repassa X-Forwarded-For. Habilite apenas em
+      # ambientes onde esse header vem de um proxy de confiança.
+      - key: APP_TRUST_PROXY_HEADERS
+        value: "true"
+      - key: RATE_LIMIT_READ_CAPACITY
+        value: "10"
+      - key: RATE_LIMIT_WRITE_CAPACITY
+        value: "5"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
