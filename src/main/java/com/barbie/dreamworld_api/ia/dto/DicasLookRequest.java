@@ -55,4 +55,7 @@ public class DicasLookRequest {
             example = "quero dicas de calçado e como prender o cabelo")
     @Size(max = 300, message = "O foco deve ter no máximo 300 caracteres")
     private String foco;
+
+    @Schema(description = "Índice da variação visual usada na imagem anterior, para gerar outra diferente")
+    private Integer variacaoImagem;
 }

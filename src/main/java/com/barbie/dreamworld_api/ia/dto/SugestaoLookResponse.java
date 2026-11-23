@@ -95,6 +95,9 @@ public class SugestaoLookResponse {
     )
     private String avisoImagem;
 
+    @Schema(description = "Dicas aprimoradas da estilista para refinar este look na mesma ocasião")
+    private List<DicasLookResponse.Dica> dicas;
+
     @Getter
     @Setter
     @Builder

@@ -67,7 +67,7 @@ public class AssistenteEstiloService {
                 : request.getOcasiao().trim();
 
         String prompt = montarPrompt(barbie, ocasiaoDescricao, request.getPreferencias());
-        String jsonBruto = geminiClient.generateJson(prompt, buildResponseSchema());
+        String jsonBruto = geminiClient.generateJson(prompt, buildResponseSchema(), 3072);
 
         SugestaoLookResponse resposta = parseResposta(jsonBruto, barbie, ocasiaoDescricao);
 
@@ -123,8 +123,46 @@ public class AssistenteEstiloService {
                 : request.getOcasiao().trim();
 
         String prompt = montarPromptDicas(barbie, request, ocasiaoDescricao);
-        String jsonBruto = geminiClient.generateJson(prompt, buildDicasSchema());
+        String jsonBruto = geminiClient.generateJson(prompt, buildDicasSchema(), 1024);
         return parseDicas(jsonBruto);
+    }
+
+    /** Cria uma nova versão visual do mesmo look, sem chamar o Gemini novamente. */
+    public SugestaoLookResponse.ImagemLook gerarNovaImagem(DicasLookRequest request) {
+        Barbie barbie = barbieRepository.findById(request.getBarbieId())
+                .orElseThrow(() -> new ResourceNotFoundException("Barbie", request.getBarbieId()));
+
+        String ocasiaoDescricao = request.getEventoId() != null
+                ? descreverEvento(request.getEventoId())
+                : nuloOuTexto(request.getOcasiao());
+
+        List<SugestaoLookResponse.ItemSugerido> itens = (request.getItensSugeridos() == null)
+                ? List.of()
+                : request.getItensSugeridos().stream()
+                        .map(nome -> SugestaoLookResponse.ItemSugerido.builder()
+                                .nome(nome)
+                                .categoria("Peça do look")
+                                .motivo("")
+                                .build())
+                        .toList();
+
+        SugestaoLookResponse look = SugestaoLookResponse.builder()
+                .tituloLook(request.getTituloLook())
+                .resumo(request.getResumo())
+                .paletaCores(request.getPaletaCores())
+                .itensSugeridos(itens)
+                .acessoriosDoAcervoRecomendados(request.getAcessoriosRecomendados())
+                .build();
+
+        String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, look);
+        ImagemGerada imagem = pollinationImageClient.gerarNovaImagem(
+                promptImagem, request.getVariacaoImagem() == null ? 0 : request.getVariacaoImagem());
+
+        return SugestaoLookResponse.ImagemLook.builder()
+                .dataUrl(imagem.toDataUrl())
+                .mimeType(imagem.mimeType())
+                .base64(null)
+                .build();
     }
 
     private String montarPromptDicas(Barbie barbie, DicasLookRequest request, String ocasiao) {
@@ -185,8 +223,8 @@ public class AssistenteEstiloService {
         return (valor == null || valor.isBlank()) ? "nenhum" : valor.trim();
     }
 
-    private Map<String, Object> buildDicasSchema() {
-        Map<String, Object> dicaSchema = Map.of(
+    private Map<String, Object> buildDicaItemSchema() {
+        return Map.of(
                 "type", "OBJECT",
                 "properties", Map.of(
                         "categoria", Map.of("type", "STRING"),
@@ -195,13 +233,15 @@ public class AssistenteEstiloService {
                 ),
                 "required", List.of("categoria", "titulo", "descricao")
         );
+    }
 
+    private Map<String, Object> buildDicasSchema() {
         return Map.of(
                 "type", "OBJECT",
                 "properties", Map.of(
                         "titulo", Map.of("type", "STRING"),
                         "resumo", Map.of("type", "STRING"),
-                        "dicas", Map.of("type", "ARRAY", "items", dicaSchema),
+                        "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema()),
                         "toqueFinal", Map.of("type", "STRING")
                 ),
                 "required", List.of("titulo", "resumo", "dicas", "toqueFinal")
@@ -211,20 +251,11 @@ public class AssistenteEstiloService {
     private DicasLookResponse parseDicas(String json) {
         try {
             JsonNode root = objectMapper.readTree(json);
-            List<DicasLookResponse.Dica> dicas = new ArrayList<>();
-            JsonNode node = root.get("dicas");
-            if (node != null && node.isArray()) {
-                node.forEach(n -> dicas.add(DicasLookResponse.Dica.builder()
-                        .categoria(textoOuPadrao(n, "categoria", "Dica"))
-                        .titulo(textoOuPadrao(n, "titulo", "Refinamento"))
-                        .descricao(textoOuPadrao(n, "descricao", ""))
-                        .build()));
-            }
 
             return DicasLookResponse.builder()
                     .titulo(textoOuPadrao(root, "titulo", "Dicas aprimoradas"))
                     .resumo(textoOuPadrao(root, "resumo", ""))
-                    .dicas(dicas)
+                    .dicas(listaDeDicas(root))
                     .toqueFinal(textoOuPadrao(root, "toqueFinal", ""))
                     .build();
 
@@ -326,6 +357,9 @@ public class AssistenteEstiloService {
                   político ou fora do universo do produto.
                 - Seja objetivo: no máximo 5 itens em "itensSugeridos" e no máximo 4 cores em
                   "paletaCores".
+                - No campo "dicas", inclua de 3 a 4 dicas APRIMORADAS para refinar esse look
+                  na mesma ocasião (caimento, cores, calçado, cabelo ou acessórios), cada uma
+                  com "categoria", "titulo" e "descricao" curta. Não repita o resumo.
                 """.formatted(
                 barbie.getNome(),
                 barbie.getColecao(),
@@ -370,13 +404,14 @@ public class AssistenteEstiloService {
                 "resumo", Map.of("type", "STRING"),
                 "paletaCores", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                 "itensSugeridos", Map.of("type", "ARRAY", "items", itemSchema),
-                "acessoriosDoAcervoRecomendados", Map.of("type", "ARRAY", "items", Map.of("type", "STRING"))
+                "acessoriosDoAcervoRecomendados", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema())
         );
 
         return Map.of(
                 "type", "OBJECT",
                 "properties", properties,
-                "required", List.of("tituloLook", "resumo", "itensSugeridos")
+                "required", List.of("tituloLook", "resumo", "itensSugeridos", "dicas")
         );
     }
 
@@ -393,6 +428,7 @@ public class AssistenteEstiloService {
                     .paletaCores(listaDeTextos(root, "paletaCores"))
                     .itensSugeridos(listaDeItens(root))
                     .acessoriosDoAcervoRecomendados(listaDeTextos(root, "acessoriosDoAcervoRecomendados"))
+                    .dicas(listaDeDicas(root))
                     .build();
 
         } catch (Exception e) {
@@ -431,5 +467,19 @@ public class AssistenteEstiloService {
                 .motivo(textoOuPadrao(n, "motivo", ""))
                 .build()));
         return itens;
+    }
+
+    private List<DicasLookResponse.Dica> listaDeDicas(JsonNode root) {
+        JsonNode node = root.get("dicas");
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        List<DicasLookResponse.Dica> dicas = new ArrayList<>();
+        node.forEach(n -> dicas.add(DicasLookResponse.Dica.builder()
+                .categoria(textoOuPadrao(n, "categoria", "Dica"))
+                .titulo(textoOuPadrao(n, "titulo", "Refinamento"))
+                .descricao(textoOuPadrao(n, "descricao", ""))
+                .build()));
+        return dicas;
     }
 }

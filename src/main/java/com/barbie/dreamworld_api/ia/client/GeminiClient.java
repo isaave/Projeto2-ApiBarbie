@@ -52,6 +52,11 @@ public class GeminiClient {
      * responseSchema informado, e devolve o texto JSON bruto retornado.
      */
     public String generateJson(String prompt, Map<String, Object> responseSchema) {
+        return generateJson(prompt, responseSchema, 2048);
+    }
+
+    /** Permite limitar o tamanho da resposta em endpoints mais simples, reduzindo latência. */
+    public String generateJson(String prompt, Map<String, Object> responseSchema, int maxOutputTokens) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new AiServiceException(
                     "Assistente de Estilo não configurado: defina a variável de ambiente GEMINI_API_KEY.",
@@ -65,7 +70,7 @@ public class GeminiClient {
                 )),
                 "generationConfig", Map.of(
                         "temperature", 0.9,
-                        "maxOutputTokens", 2048,
+                        "maxOutputTokens", maxOutputTokens,
                         "responseMimeType", "application/json",
                         "responseSchema", responseSchema,
                         "thinkingConfig", Map.of("thinkingBudget", 0)

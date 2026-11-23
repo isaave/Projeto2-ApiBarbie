@@ -98,4 +98,18 @@ public class AssistenteEstiloController {
             @Valid @RequestBody DicasLookRequest request) {
         return ResponseEntity.ok(assistenteEstiloService.gerarDicas(request));
     }
+
+    @Operation(
+            summary = "Gerar outra imagem para o mesmo look",
+            description = " Mantém o look em texto e devolve uma nova ilustração da Barbie, "
+                    + "com seed e variação de estilo diferentes. Não consome o Gemini."
+    )
+    @PostMapping("/assistente-estilo/regerar-imagem")
+    public ResponseEntity<SugestaoLookResponse.ImagemLook> gerarNovaImagem(
+            @Parameter(description = "Chave de API para autenticação", required = true)
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+
+            @Valid @RequestBody DicasLookRequest request) {
+        return ResponseEntity.ok(assistenteEstiloService.gerarNovaImagem(request));
+    }
 }

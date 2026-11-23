@@ -6,29 +6,54 @@ import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Gerador de imagem alternativo e gratuito, usado como fallback quando o
  * Gemini Nano Banana não tem quota disponível (Free Tier = 0 imagens/dia).
  *
- * Em vez de descarregar a imagem no servidor — o que esgota o limite de 1
- * imagem por 45s por IP partilhado do Render — devolvemos a URL pública.
- * O browser do utilizador carrega a imagem diretamente, com o mesmo prompt
- * montado a partir do look gerado pelo Gemini.
+ * Devolvemos a URL pública em vez de descarregar a imagem no servidor: o
+ * browser do utilizador carrega a imagem diretamente, evitando o limite de 1
+ * imagem por 45s por IP partilhado do Render.
+ *
+ * Para não repetir sempre o mesmo desenho, cada chamada usa um seed novo e
+ * acrescenta uma variação de estilo ao prompt. O botão "Outra imagem" força
+ * uma variação diferente.
  */
 @Slf4j
 @Component
 public class PollinationsImageClient {
 
     private static final String BASE_URL = "https://image.pollinations.ai/prompt/";
+    private static final List<String> ESTILOS = List.of(
+            "high detail fashion illustration, soft studio light",
+            "3D collectible doll render, glossy finish, dreamy lighting",
+            "editorial fashion photography of a doll, cinematic light",
+            "watercolor fashion illustration, delicate pastel strokes",
+            "vibrant pop-art fashion illustration, bold clean lines"
+    );
 
     public ImagemGerada gerarImagem(String prompt) {
-        String encoded = URLEncoder.encode(prompt, StandardCharsets.UTF_8);
+        return gerarImagem(prompt, ThreadLocalRandom.current().nextInt(ESTILOS.size()));
+    }
+
+    /** Gera uma nova versão com uma variação de estilo diferente da anterior. */
+    public ImagemGerada gerarNovaImagem(String prompt, int variacaoAnterior) {
+        int novaVariacao = (variacaoAnterior + 1 + ThreadLocalRandom.current().nextInt(ESTILOS.size() - 1))
+                % ESTILOS.size();
+        return gerarImagem(prompt, novaVariacao);
+    }
+
+    private ImagemGerada gerarImagem(String prompt, int indiceEstilo) {
+        String estilo = ESTILOS.get(indiceEstilo % ESTILOS.size());
         int seed = ThreadLocalRandom.current().nextInt(1_000_000);
-        String url = BASE_URL + encoded
-                + "?width=512&height=683&nologo=true&seed=" + seed;
-        log.info("Imagem alternativa disponibilizada por URL.");
+        String promptFinal = prompt + ". Visual style variation: " + estilo + ".";
+        String url = BASE_URL + URLEncoder.encode(promptFinal, StandardCharsets.UTF_8)
+                + "?width=512&height=683&nologo=true&seed=" + seed
+                + "&variation=" + indiceEstilo;
+
+        log.info("Imagem alternativa gerada (estilo {}, seed {}).", indiceEstilo, seed);
         return ImagemGerada.fromUrl(url);
     }
 }
