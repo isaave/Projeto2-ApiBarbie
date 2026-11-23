@@ -5,6 +5,7 @@ import com.barbie.dreamworld_api.exceptions.BusinessException;
 import com.barbie.dreamworld_api.exceptions.ResourceNotFoundException;
 import com.barbie.dreamworld_api.ia.client.GeminiClient;
 import com.barbie.dreamworld_api.ia.client.GeminiImageClient;
+import com.barbie.dreamworld_api.ia.client.PollinationsImageClient;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookRequest;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookResponse;
@@ -35,6 +36,7 @@ public class AssistenteEstiloService {
     private final EventoRepository eventoRepository;
     private final GeminiClient geminiClient;
     private final GeminiImageClient geminiImageClient;
+    private final PollinationsImageClient pollinationImageClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -70,17 +72,31 @@ public class AssistenteEstiloService {
         // Usa exatamente o look que a IA acabou de gerar como base para a imagem.
         // Se o provedor de imagens estiver sem quota, ainda devolvemos o look em
         // texto com um aviso, em vez de descartar toda a resposta da IA.
+        String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
+        ImagemGerada imagem = null;
+
         try {
-            String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
-            ImagemGerada imagem = geminiImageClient.gerarImagem(promptImagem);
+            imagem = geminiImageClient.gerarImagem(promptImagem);
+        } catch (RuntimeException ex) {
+            log.warn("Gemini sem imagem disponível ({}). Tentando gerador alternativo.", ex.getMessage());
+        }
+
+        if (imagem == null) {
+            try {
+                imagem = pollinationImageClient.gerarImagem(promptImagem);
+            } catch (RuntimeException ex) {
+                log.warn("Gerador alternativo também falhou: {}", ex.getMessage());
+                resposta.setAvisoImagem(
+                        "O look foi gerado, mas a imagem não pôde ser criada: " + ex.getMessage());
+            }
+        }
+
+        if (imagem != null) {
             resposta.setImagem(SugestaoLookResponse.ImagemLook.builder()
                     .dataUrl(imagem.toDataUrl())
                     .mimeType(imagem.mimeType())
                     .base64(imagem.base64())
                     .build());
-        } catch (RuntimeException ex) {
-            log.warn("Não foi possível gerar a imagem do look (look em texto mantido): {}", ex.getMessage());
-            resposta.setAvisoImagem("O look foi gerado, mas a imagem não pôde ser criada: " + ex.getMessage());
         }
 
         return resposta;
