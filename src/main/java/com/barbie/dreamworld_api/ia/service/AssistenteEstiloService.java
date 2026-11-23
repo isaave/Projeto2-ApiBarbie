@@ -6,6 +6,8 @@ import com.barbie.dreamworld_api.exceptions.ResourceNotFoundException;
 import com.barbie.dreamworld_api.ia.client.GeminiClient;
 import com.barbie.dreamworld_api.ia.client.GeminiImageClient;
 import com.barbie.dreamworld_api.ia.client.PollinationsImageClient;
+import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
+import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookRequest;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookResponse;
@@ -100,6 +102,138 @@ public class AssistenteEstiloService {
         }
 
         return resposta;
+    }
+
+    /**
+     * Refina um look que já foi gerado. O look original é mantido: a IA apenas
+     * acrescenta dicas práticas e específicas para a ocasião informada.
+     */
+    public DicasLookResponse gerarDicas(DicasLookRequest request) {
+        if (request.getEventoId() == null
+                && (request.getOcasiao() == null || request.getOcasiao().isBlank())) {
+            throw new BusinessException(
+                    "Informe a ocasião do look já gerado (ou o 'eventoId' usado nele).");
+        }
+
+        Barbie barbie = barbieRepository.findById(request.getBarbieId())
+                .orElseThrow(() -> new ResourceNotFoundException("Barbie", request.getBarbieId()));
+
+        String ocasiaoDescricao = request.getEventoId() != null
+                ? descreverEvento(request.getEventoId())
+                : request.getOcasiao().trim();
+
+        String prompt = montarPromptDicas(barbie, request, ocasiaoDescricao);
+        String jsonBruto = geminiClient.generateJson(prompt, buildDicasSchema());
+        return parseDicas(jsonBruto);
+    }
+
+    private String montarPromptDicas(Barbie barbie, DicasLookRequest request, String ocasiao) {
+        return """
+                Você é a estilista pessoal do universo Barbie Dreamworld.
+                Um look JÁ FOI gerado para a Barbie abaixo. Não crie um look novo.
+                Sua tarefa é dar dicas APRIMORADAS, práticas e específicas para melhorar
+                esse look na ocasião informada, sem contrariar a proposta original.
+
+                Dados reais da Barbie (vindos do banco de dados):
+                - Nome: %s
+                - Coleção: %s
+                - Profissão: %s
+                - Acessórios que ela possui: %s
+
+                Ocasião: %s
+                Preferências do usuário: %s
+                Foco extra pedido pelo usuário: %s
+
+                Look já gerado (base das dicas):
+                - Título: %s
+                - Resumo: %s
+                - Paleta: %s
+                - Itens: %s
+                - Acessórios recomendados do acervo: %s
+
+                Regras obrigatórias:
+                - Responda sempre em português do Brasil.
+                - Devolva entre 3 e 5 dicas em "dicas", cada uma com categoria, título curto
+                  e descrição objetiva (máximo 2 frases).
+                - As dicas devem complementar o look: caimento, combinação de cores, calçado,
+                  acessórios, cabelo ou adequação à ocasião. Não repita o resumo original.
+                - Cite APENAS acessórios que apareçam na lista de acessórios que ela possui.
+                  Não invente marcas reais e não sugira conteúdo ofensivo ou sexual.
+                - Em "toqueFinal", dê uma sugestão curta de atitude ou pose para fechar o look.
+                """.formatted(
+                barbie.getNome(),
+                barbie.getColecao(),
+                barbie.getProfissao() != null ? barbie.getProfissao().getNomeProfissao() : "não informada",
+                (barbie.getAcessorios() == null || barbie.getAcessorios().isEmpty())
+                        ? "nenhum cadastrado"
+                        : barbie.getAcessorios().stream().map(this::descreverAcessorio).collect(Collectors.joining("; ")),
+                ocasiao,
+                nuloOuTexto(request.getPreferencias()),
+                nuloOuTexto(request.getFoco()),
+                request.getTituloLook(),
+                nuloOuTexto(request.getResumo()),
+                request.getPaletaCores() == null || request.getPaletaCores().isEmpty()
+                        ? "não informada" : String.join(", ", request.getPaletaCores()),
+                request.getItensSugeridos() == null || request.getItensSugeridos().isEmpty()
+                        ? "não informados" : String.join(", ", request.getItensSugeridos()),
+                request.getAcessoriosRecomendados() == null || request.getAcessoriosRecomendados().isEmpty()
+                        ? "nenhum" : String.join(", ", request.getAcessoriosRecomendados())
+        );
+    }
+
+    private String nuloOuTexto(String valor) {
+        return (valor == null || valor.isBlank()) ? "nenhum" : valor.trim();
+    }
+
+    private Map<String, Object> buildDicasSchema() {
+        Map<String, Object> dicaSchema = Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "categoria", Map.of("type", "STRING"),
+                        "titulo", Map.of("type", "STRING"),
+                        "descricao", Map.of("type", "STRING")
+                ),
+                "required", List.of("categoria", "titulo", "descricao")
+        );
+
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "titulo", Map.of("type", "STRING"),
+                        "resumo", Map.of("type", "STRING"),
+                        "dicas", Map.of("type", "ARRAY", "items", dicaSchema),
+                        "toqueFinal", Map.of("type", "STRING")
+                ),
+                "required", List.of("titulo", "resumo", "dicas", "toqueFinal")
+        );
+    }
+
+    private DicasLookResponse parseDicas(String json) {
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            List<DicasLookResponse.Dica> dicas = new ArrayList<>();
+            JsonNode node = root.get("dicas");
+            if (node != null && node.isArray()) {
+                node.forEach(n -> dicas.add(DicasLookResponse.Dica.builder()
+                        .categoria(textoOuPadrao(n, "categoria", "Dica"))
+                        .titulo(textoOuPadrao(n, "titulo", "Refinamento"))
+                        .descricao(textoOuPadrao(n, "descricao", ""))
+                        .build()));
+            }
+
+            return DicasLookResponse.builder()
+                    .titulo(textoOuPadrao(root, "titulo", "Dicas aprimoradas"))
+                    .resumo(textoOuPadrao(root, "resumo", ""))
+                    .dicas(dicas)
+                    .toqueFinal(textoOuPadrao(root, "toqueFinal", ""))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Não foi possível interpretar as dicas retornadas pela IA: {}", json, e);
+            throw new AiServiceException(
+                    "A IA retornou dicas em formato inesperado. Tente novamente em instantes.",
+                    HttpStatus.BAD_GATEWAY, e);
+        }
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.barbie.dreamworld_api.ia.controller;
 
+import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
+import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookRequest;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookResponse;
 import com.barbie.dreamworld_api.ia.service.AssistenteEstiloService;
@@ -63,5 +65,37 @@ public class AssistenteEstiloController {
 
             @Valid @RequestBody SugestaoLookRequest request) {
         return ResponseEntity.ok(assistenteEstiloService.gerarSugestao(request));
+    }
+
+    @Operation(
+            summary = "Receber dicas aprimoradas para um look já gerado",
+            description = """
+                    Envia o look gerado anteriormente como contexto e devolve dicas práticas
+                    da IA para refiná-lo na mesma ocasião (caimento, cores, calçado, acessórios,
+                    cabelo e toque final). O look original não é recriado.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Dicas geradas com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Corpo da requisição inválido",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Barbie ou evento não encontrado",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "429", description = "Limite de requisições do provedor de IA atingido",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "502", description = "A IA retornou uma resposta inválida",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "503", description = "Serviço de IA indisponível ou sem chave",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Acesso negado pela Barbie Security. Uma X-API-Key válida é necessária.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
+    @PostMapping("/assistente-estilo/dicas")
+    public ResponseEntity<DicasLookResponse> gerarDicas(
+            @Parameter(description = "Chave de API para autenticação", required = true)
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+
+            @Valid @RequestBody DicasLookRequest request) {
+        return ResponseEntity.ok(assistenteEstiloService.gerarDicas(request));
     }
 }
