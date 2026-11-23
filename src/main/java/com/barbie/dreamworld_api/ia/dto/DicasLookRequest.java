@@ -56,6 +56,10 @@ public class DicasLookRequest {
     @Size(max = 300, message = "O foco deve ter no máximo 300 caracteres")
     private String foco;
 
+    @Schema(description = "Prompt visual curto retornado junto com o look, quando disponível")
+    @Size(max = 1000)
+    private String promptImagem;
+
     @Schema(description = "Índice da variação visual usada na imagem anterior, para gerar outra diferente")
     private Integer variacaoImagem;
 }

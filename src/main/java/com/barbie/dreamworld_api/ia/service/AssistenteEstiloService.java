@@ -152,6 +152,7 @@ public class AssistenteEstiloService {
                 .paletaCores(request.getPaletaCores())
                 .itensSugeridos(itens)
                 .acessoriosDoAcervoRecomendados(request.getAcessoriosRecomendados())
+                .promptImagem(request.getPromptImagem())
                 .build();
 
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, look);
@@ -273,6 +274,16 @@ public class AssistenteEstiloService {
      * inventado aqui — para garantir que a imagem corresponda ao texto.
      */
     private String montarPromptImagem(Barbie barbie, String ocasiao, SugestaoLookResponse look) {
+        // A própria IA de texto descreve o visual em inglês, curto e objetivo.
+        // Isso evita que o gerador de imagem ignore detalhes de um prompt longo
+        // e garante que a imagem corresponda ao look que foi pedido.
+        if (look.getPromptImagem() != null && !look.getPromptImagem().isBlank()) {
+            return "Classic Barbie fashion doll, "
+                    + look.getPromptImagem().trim().replaceAll("[.\\s]+$", "")
+                    + ". Full body, head to toe, centered, plain light pink studio background, "
+                    + "high detail, cheerful Dreamworld aesthetic, no text, no logos, no watermark.";
+        }
+
         StringBuilder sb = new StringBuilder();
         sb.append("Illustration of the classic Barbie fashion doll wearing the following outfit. ")
                 .append("Full body, head to toe, centered, clean plain light pink studio background, ")
@@ -357,6 +368,10 @@ public class AssistenteEstiloService {
                   político ou fora do universo do produto.
                 - Seja objetivo: no máximo 5 itens em "itensSugeridos" e no máximo 4 cores em
                   "paletaCores".
+                - No campo "promptImagem", escreva EM INGLÊS um prompt visual curto (máximo 60
+                  palavras) com APENAS os elementos visíveis do look: as peças de roupa, as cores
+                  por nome (ex: hot pink, white, lavender), os acessórios e o cenário da ocasião.
+                  Não inclua explicações, marcas, texto na imagem nem frases do resumo.
                 - No campo "dicas", inclua de 3 a 4 dicas APRIMORADAS para refinar esse look
                   na mesma ocasião (caimento, cores, calçado, cabelo ou acessórios), cada uma
                   com "categoria", "titulo" e "descricao" curta. Não repita o resumo.
@@ -405,6 +420,7 @@ public class AssistenteEstiloService {
                 "paletaCores", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
                 "itensSugeridos", Map.of("type", "ARRAY", "items", itemSchema),
                 "acessoriosDoAcervoRecomendados", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")),
+                "promptImagem", Map.of("type", "STRING"),
                 "dicas", Map.of("type", "ARRAY", "items", buildDicaItemSchema())
         );
 
@@ -428,6 +444,7 @@ public class AssistenteEstiloService {
                     .paletaCores(listaDeTextos(root, "paletaCores"))
                     .itensSugeridos(listaDeItens(root))
                     .acessoriosDoAcervoRecomendados(listaDeTextos(root, "acessoriosDoAcervoRecomendados"))
+                    .promptImagem(textoOuPadrao(root, "promptImagem", ""))
                     .dicas(listaDeDicas(root))
                     .build();
 

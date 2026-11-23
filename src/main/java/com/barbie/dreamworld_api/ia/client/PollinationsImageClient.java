@@ -27,11 +27,11 @@ public class PollinationsImageClient {
 
     private static final String BASE_URL = "https://image.pollinations.ai/prompt/";
     private static final List<String> ESTILOS = List.of(
-            "high detail fashion illustration, soft studio light",
-            "3D collectible doll render, glossy finish, dreamy lighting",
-            "editorial fashion photography of a doll, cinematic light",
-            "watercolor fashion illustration, delicate pastel strokes",
-            "vibrant pop-art fashion illustration, bold clean lines"
+            "soft studio light, high detail",
+            "glossy collectible doll render, dreamy lighting",
+            "cinematic lighting, sharp details",
+            "clean fashion editorial light, bright and crisp",
+            "high detail illustration, gentle soft light"
     );
 
     public ImagemGerada gerarImagem(String prompt) {
@@ -48,7 +48,8 @@ public class PollinationsImageClient {
     private ImagemGerada gerarImagem(String prompt, int indiceEstilo) {
         String estilo = ESTILOS.get(indiceEstilo % ESTILOS.size());
         int seed = ThreadLocalRandom.current().nextInt(1_000_000);
-        String promptFinal = prompt + ". Visual style variation: " + estilo + ".";
+        String promptFinal = prompt.replaceAll("[.\\s]+$", "")
+                + ". Visual style variation: " + estilo + ".";
         String url = BASE_URL + URLEncoder.encode(promptFinal, StandardCharsets.UTF_8)
                 + "?width=512&height=683&nologo=true&seed=" + seed
                 + "&variation=" + indiceEstilo;

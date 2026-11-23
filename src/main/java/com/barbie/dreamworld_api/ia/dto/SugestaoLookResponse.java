@@ -98,6 +98,12 @@ public class SugestaoLookResponse {
     @Schema(description = "Dicas aprimoradas da estilista para refinar este look na mesma ocasião")
     private List<DicasLookResponse.Dica> dicas;
 
+    @Schema(
+            description = "Prompt visual curto em inglês, gerado pela IA, descrevendo exatamente as peças, cores e cenário do look. É usado para gerar a imagem.",
+            example = "Barbie fashion doll wearing a floral midi dress in pink and white, white cat-eye sunglasses, pink quilted handbag, garden party, full body"
+    )
+    private String promptImagem;
+
     @Getter
     @Setter
     @Builder
