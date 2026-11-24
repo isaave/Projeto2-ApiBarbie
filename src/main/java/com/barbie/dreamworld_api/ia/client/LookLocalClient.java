@@ -177,7 +177,7 @@ public class LookLocalClient {
         String cenario = ocasiao.toLowerCase(Locale.ROOT).contains("praia")
                 ? "sunny beach" : "dreamworld garden";
         return "fashion doll, " + cor + " outfit, " + cenario
-                + ", full body, pink background";
+                + ", photorealistic studio photograph, full body, pink background";
     }
 
     private String nuloOu(String valor, String padrao) {

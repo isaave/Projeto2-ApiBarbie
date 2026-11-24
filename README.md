@@ -144,6 +144,9 @@ O campo `imagem.dataUrl` tenta, nesta ordem:
 3. **Ilustração vetorial** (`data:image/svg+xml;base64,...`) — último recurso,
    feita com as cores e peças do próprio look e sem depender de rede.
 
+Em todos os caminhos o prompt é padronizado por `PromptFotorealista`, que
+exige uma foto realista e preserva peças, cores e acessórios do look.
+
 Quando um fallback é usado, `avisoImagem` explica qual caminho gerou a imagem.
 Basta colar o `dataUrl` na barra do navegador para vê-la.
 
@@ -260,14 +263,24 @@ peças e acessórios continuam sendo exatamente os do look**. O campo
 
 ### Por que a imagem pode vir como foto ou como SVG
 
+**Todos os prompts de imagem passam por `PromptFotorealista`** — a única fonte
+de regras de renderização. Seja o look gerado pelo Gemini, pelo fallback local
+ou um pedido de “Outra imagem”, o prompt enviado aos geradores pede
+**fotografia editorial realista** (pele, cabelo e tecido com textura real,
+lente de 85 mm, luz difusa, corpo inteiro) e remove termos conflitantes como
+“ilustração”, “cartoon” ou “render 3D”. Peças, cores e acessórios continuam
+sendo exatamente os do look.
+
 O tier gratuito do Gemini não tem cota de geração de imagem (`429`). Para não
 devolver imagens sem sentido, a API tenta nesta ordem:
 
 1. **Gemini Nano Banana** — foto realista, quando a chave tem cota;
-2. **Pollinations/FLUX** — foto realista sem chave, com retry de 10 s quando
-   o provedor está no limite;
+2. **Pollinations/FLUX** — foto realista sem chave, com **4 tentativas**,
+   semente diferente em cada uma e espera de 8 s quando o provedor está no
+   limite;
 3. **IlustracaoLookClient** — SVG desenhado localmente a partir das **cores,
-   itens e acessórios do próprio look**.
+   itens e acessórios do próprio look**, usado apenas se os geradores de foto
+   falharem.
 
 O campo `avisoImagem` identifica qual caminho gerou a imagem, deixando o
 fallback transparente no frontend.

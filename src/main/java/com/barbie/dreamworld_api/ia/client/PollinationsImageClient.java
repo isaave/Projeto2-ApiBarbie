@@ -32,8 +32,8 @@ public class PollinationsImageClient {
 
     private static final int LARGURA = 768;
     private static final int ALTURA = 1024;
-    private static final int MAX_TENTATIVAS = 2;
-    private static final long ESPERA_RETRY_MS = 10_000;
+    private static final int MAX_TENTATIVAS = 4;
+    private static final long ESPERA_RETRY_MS = 8_000;
 
     private final RestClient restClient;
     private final boolean habilitado;
@@ -65,13 +65,16 @@ public class PollinationsImageClient {
         int semente = Math.floorMod(prompt.hashCode() + variacao * 7919, 1_000_000);
 
         for (int tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+            // Cada tentativa usa uma semente diferente: além de evitar respostas
+            // em cache, aumenta a chance de conseguir uma foto no provedor público.
+            int sementeTentativa = Math.floorMod(semente + (tentativa - 1) * 104729, 1_000_000);
             try {
                 ResponseEntity<byte[]> resposta = restClient.get()
                         .uri(uri -> uri
                                 .path("/prompt/{prompt}")
                                 .queryParam("width", LARGURA)
                                 .queryParam("height", ALTURA)
-                                .queryParam("seed", semente)
+                                .queryParam("seed", sementeTentativa)
                                 .queryParam("model", modelo)
                                 .queryParam("nologo", "true")
                                 .queryParam("enhance", "true")
@@ -104,8 +107,8 @@ public class PollinationsImageClient {
                             "O gerador de fotos está no limite agora. Tente novamente em instantes.",
                             status, ex);
                 }
-                // O Pollinations costuma recomendar "Retry after 10s" em 503.
-                log.warn("Pollinations ocupado ({}). Retentando em 10 s.", ex.getStatusCode());
+                log.warn("Pollinations ocupado ({}) na tentativa {}/{}. Retentando em 8 s.",
+                        ex.getStatusCode(), tentativa, MAX_TENTATIVAS);
                 aguardarAntesDeRetentar();
 
             } catch (HttpClientErrorException ex) {
@@ -120,7 +123,8 @@ public class PollinationsImageClient {
                             "O gerador de fotos externo está indisponível.",
                             HttpStatus.SERVICE_UNAVAILABLE, ex);
                 }
-                log.warn("Pollinations indisponível ({}). Retentando em 10 s.", ex.getMessage());
+                log.warn("Pollinations indisponível ({}) na tentativa {}/{}. Retentando em 8 s.",
+                        ex.getMessage(), tentativa, MAX_TENTATIVAS);
                 aguardarAntesDeRetentar();
             }
         }

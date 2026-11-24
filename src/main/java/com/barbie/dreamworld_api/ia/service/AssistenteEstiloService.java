@@ -8,6 +8,7 @@ import com.barbie.dreamworld_api.ia.client.GeminiImageClient;
 import com.barbie.dreamworld_api.ia.client.IlustracaoLookClient;
 import com.barbie.dreamworld_api.ia.client.LookLocalClient;
 import com.barbie.dreamworld_api.ia.client.PollinationsImageClient;
+import com.barbie.dreamworld_api.ia.client.PromptFotorealista;
 import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
 import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
@@ -91,7 +92,7 @@ public class AssistenteEstiloService {
         // Ordem dos provedores: Gemini (melhor qualidade) → Pollinations/FLUX
         // (foto realista sem chave) → ilustração vetorial determinística.
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
-        String promptFotorealista = promptFotorealista(promptImagem);
+        String promptFotorealista = PromptFotorealista.de(promptImagem);
         ImagemGerada imagem = null;
 
         try {
@@ -196,8 +197,7 @@ public class AssistenteEstiloService {
 
         int variacao = request.getVariacaoImagem() == null ? 0 : request.getVariacaoImagem();
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, look);
-        String promptFotorealista = promptFotorealista(promptImagem)
-                + ", alternate pose and camera angle, variation " + variacao;
+        String promptFotorealista = PromptFotorealista.comVariacao(promptImagem, variacao);
         ImagemGerada imagem = null;
 
         try {
@@ -364,22 +364,6 @@ public class AssistenteEstiloService {
     }
 
     /**
-     * Transforma o prompt curto do look em um prompt de FOTOGRAFIA realista.
-     * As peças, cores e acessórios continuam sendo exatamente os do look —
-     * só mudam o estilo de renderização e a qualidade esperada.
-     */
-    private String promptFotorealista(String promptImagem) {
-        return promptImagem.trim().replaceAll("[.\\s]+$", "")
-                + ". Photorealistic high-fashion editorial photograph of a Barbie-style "
-                + "fashion doll, believable proportions, blonde hair, large blue eyes, "
-                + "wearing exactly the outfit and accessories described, full body from "
-                + "head to toe, centered, natural pose, soft diffused studio light, "
-                + "85mm lens, shallow depth of field, realistic skin, hair and fabric "
-                + "texture, ultra detailed, high resolution, clean light pink seamless "
-                + "backdrop. No text, no letters, no logos, no watermarks, no deformed hands.";
-    }
-
-    /**
      * Transforma a resposta estruturada do assistente em um prompt de imagem.
      * Todos os elementos visuais vêm do look gerado pela própria IA — nada é
      * inventado aqui — para garantir que a imagem corresponda ao texto.
@@ -390,14 +374,16 @@ public class AssistenteEstiloService {
         // e garante que a imagem corresponda ao look que foi pedido.
         if (look.getPromptImagem() != null && !look.getPromptImagem().isBlank()) {
             return look.getPromptImagem().trim().replaceAll("[.\\s]+$", "")
-                    + ", full body, centered, no text, no logos, no watermarks";
+                    + ", photorealistic studio photograph, full body, centered, "
+                    + "no text, no logos, no watermarks";
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Illustration of the classic Barbie fashion doll wearing the following outfit. ")
+        sb.append("Photorealistic high-fashion editorial photograph of a Barbie-style fashion doll ")
+                .append("wearing the following outfit. ")
                 .append("Full body, head to toe, centered, clean plain light pink studio background, ")
-                .append("high detail fashion illustration, cheerful Dreamworld aesthetic. ")
-                .append("Do not include any text, words, logos or watermarks in the image.\n\n")
+                .append("ultra detailed realistic skin, hair and fabric textures, cheerful Dreamworld ")
+                .append("aesthetic. Do not include any text, words, logos or watermarks in the image.\n\n")
                 .append("Doll: ").append(barbie.getNome())
                 .append(" (collection: ").append(barbie.getColecao()).append(")");
 
@@ -482,8 +468,10 @@ public class AssistenteEstiloService {
                   "paletaCores".
                 - No campo "promptImagem", escreva EM INGLÊS no máximo 25 palavras, em ETIQUETAS
                   curtas separadas por vírgula, sem frases e sem verbos. Exemplo:
-                  "fashion doll, pink floral midi dress, white cat-eye sunglasses, quilted pink handbag, sunny flower garden, full body, pink background".
-                  Inclua só peças, cores por nome (hot pink, white, lavender), acessórios e cenário.
+                  "fashion doll, pink floral midi dress, white cat-eye sunglasses, quilted pink handbag, sunny flower garden, photorealistic studio photograph, full body, pink background".
+                  Inclua só peças, cores por nome (hot pink, white, lavender), acessórios, cenário
+                  e SEMPRE a etiqueta "photorealistic studio photograph" — a imagem deve ser
+                  uma FOTO realista, nunca ilustração, cartoon ou render 3D.
                   Nunca use a palavra "Barbie", marcas, nem frases como "no text" ou "no logo".
                 - No campo "dicas", inclua de 3 a 4 dicas APRIMORADAS para refinar esse look
                   na mesma ocasião (caimento, cores, calçado, cabelo ou acessórios), cada uma
