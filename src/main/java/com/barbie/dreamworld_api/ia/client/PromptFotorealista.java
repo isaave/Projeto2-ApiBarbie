@@ -1,6 +1,5 @@
 package com.barbie.dreamworld_api.ia.client;
 
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -38,10 +37,10 @@ public final class PromptFotorealista {
         if (base.isBlank()) {
             base = "barbie-style fashion doll, elegant pink outfit, studio backdrop";
         }
-        if (!base.toLowerCase(Locale.ROOT).contains("photorealistic")) {
-            return base + REGRAS_FOTO;
-        }
-        return base + ", ultra detailed, realistic textures, full body, no text, no logos";
+        // Mesmo quando o prompt já traz a etiqueta "photorealistic", repetimos
+        // as regras completas: são elas que garantem pele/texturas reais e
+        // evitam que o gerador entregue um desenho bonitinho mas irreal.
+        return base + REGRAS_FOTO;
     }
 
     /** Variação usada por "Outra imagem": mesma foto, pose e ângulo diferentes. */

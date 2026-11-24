@@ -51,11 +51,12 @@ class PromptFotorealistaTest {
     }
 
     @Test
-    void promptJaFotorealistaNaoRepeteRegras() {
+    void promptJaFotorealistaRecebeRegrasCompletas() {
         String prompt = PromptFotorealista.de("photorealistic fashion doll, pink dress");
 
-        int ocorrencias = prompt.toLowerCase(Locale.ROOT).split("photorealistic", -1).length - 1;
-        assertEquals(1, ocorrencias);
-        assertTrue(prompt.contains("ultra detailed, realistic textures"));
+        assertTrue(prompt.contains("pink dress"));
+        assertTrue(prompt.contains("85mm lens"));
+        assertTrue(prompt.contains("realistic skin, hair and fabric texture"));
+        assertTrue(prompt.contains("True-to-life photography only"));
     }
 }
