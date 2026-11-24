@@ -94,7 +94,7 @@ public class AssistenteEstiloService {
         } catch (RuntimeException ex) {
             log.warn("Gemini sem imagem disponível ({}). Usando ilustração vetorial do look.", ex.getMessage());
             resposta.setAvisoImagem(
-                    "Imagem ilustrativa criada a partir do look (o gerador de fotos estava sem cota).");
+                    "Ilustração estilo Barbie criada a partir do look (o gerador de fotos estava sem cota).");
         }
 
         if (imagem == null) {

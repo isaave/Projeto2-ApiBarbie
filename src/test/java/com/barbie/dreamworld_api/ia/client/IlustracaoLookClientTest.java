@@ -41,6 +41,16 @@ class IlustracaoLookClientTest {
         assertTrue(svg.contains("</svg>"));
         // A cor primária do look aparece na ilustração.
         assertTrue(svg.contains("#ff69b4"));
+        // Traços reconhecíveis da boneca: cabelo loiro, olhos grandes, batom e salto.
+        assertTrue(svg.contains("id=\"cabelo\""));
+        assertTrue(svg.contains("url(#cabelo)"));
+        assertTrue(svg.contains("#fff3c4"));
+        assertTrue(svg.contains("cx=\"228\" cy=\"230\""));
+        assertTrue(svg.contains("url(#lips)"));
+        assertTrue(svg.contains("M220 606"));
+        // Nunca desenha texto, logos ou marcas d'água.
+        assertFalse(svg.contains("<text"));
+        assertFalse(svg.toLowerCase().contains("watermark"));
     }
 
     @Test

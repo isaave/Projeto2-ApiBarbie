@@ -15,7 +15,8 @@ import java.util.Set;
 
 /**
  * Desenha a Barbie do look gerado pela IA como uma ilustração vetorial
- * determinística (SVG).
+ * determinística (SVG), com cabelo loiro volumoso, olhos grandes, batom,
+ * salto alto e poses de boneca fashion.
  *
  * Isso substitui o gerador externo gratuito, que usava um modelo fraco e
  * produzia imagens sem sentido — além de falhar por limite de requisições.
@@ -140,13 +141,14 @@ public class IlustracaoLookClient {
                              int v, boolean oculos, boolean bolsa, boolean glitter,
                              boolean floral, boolean salto, boolean vestidoLongo, boolean vestidoCurto) {
 
-        int hemY = vestidoLongo ? 578 : vestidoCurto ? 472 : 526;
-        int hemL = vestidoLongo ? 150 : vestidoCurto ? 196 : 172;
+        int hemY = vestidoLongo ? 584 : vestidoCurto ? 476 : 538;
+        int hemL = vestidoLongo ? 146 : vestidoCurto ? 190 : 168;
         int hemR = 512 - hemL;
-        int cintoY = 392;
-        String rotate = String.format(Locale.ROOT, "%.2f", -2.0 + v * 1.35);
+        String rotate = String.format(Locale.ROOT, "%.2f", -1.6 + v * 1.2);
+        String pele = "#ffe0cc";
+        String peleEscura = "#f3bda3";
 
-        StringBuilder sb = new StringBuilder(6000);
+        StringBuilder sb = new StringBuilder(9000);
         sb.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"683\" viewBox=\"0 0 512 683\">\n");
 
         sb.append("<defs>\n")
@@ -157,6 +159,18 @@ public class IlustracaoLookClient {
                 .append("<linearGradient id=\"vestido\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">\n")
                 .append("<stop offset=\"0\" stop-color=\"").append(claro(primaria)).append("\"/>\n")
                 .append("<stop offset=\"1\" stop-color=\"").append(escuro(primaria)).append("\"/>\n")
+                .append("</linearGradient>\n")
+                .append("<linearGradient id=\"cabelo\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n")
+                .append("<stop offset=\"0\" stop-color=\"").append(claro(cabelo)).append("\"/>\n")
+                .append("<stop offset=\"1\" stop-color=\"").append(escuro(cabelo)).append("\"/>\n")
+                .append("</linearGradient>\n")
+                .append("<linearGradient id=\"pele\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n")
+                .append("<stop offset=\"0\" stop-color=\"").append(pele).append("\"/>\n")
+                .append("<stop offset=\"1\" stop-color=\"").append(peleEscura).append("\"/>\n")
+                .append("</linearGradient>\n")
+                .append("<linearGradient id=\"lips\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n")
+                .append("<stop offset=\"0\" stop-color=\"#ff6f9c\"/>\n")
+                .append("<stop offset=\"1\" stop-color=\"#c93f6d\"/>\n")
                 .append("</linearGradient>\n")
                 .append("<radialGradient id=\"brilho\" cx=\"50%\" cy=\"42%\" r=\"62%\">\n")
                 .append("<stop offset=\"0\" stop-color=\"#ffffff\" stop-opacity=\".72\"/>\n")
@@ -171,105 +185,141 @@ public class IlustracaoLookClient {
         sb.append("<g transform=\"rotate(").append(rotate).append(" 256 340)\">\n");
 
         // Sombra no chão
-        sb.append("<ellipse cx=\"256\" cy=\"646\" rx=\"94\" ry=\"16\" fill=\"#7a3559\" opacity=\".20\"/>\n");
+        sb.append("<ellipse cx=\"256\" cy=\"650\" rx=\"96\" ry=\"15\" fill=\"#7a3559\" opacity=\".20\"/>\n");
 
-        // Pernas
-        sb.append("<rect x=\"222\" y=\"470\" width=\"24\" height=\"150\" rx=\"12\" fill=\"#ffd8bd\"/>\n")
-                .append("<rect x=\"266\" y=\"470\" width=\"24\" height=\"150\" rx=\"12\" fill=\"#ffd8bd\"/>\n");
+        // Cabelo loiro volumoso atrás do corpo — traço mais reconhecível da Barbie
+        sb.append("<path d=\"M256 116 C170 116 136 180 146 254 C152 314 176 372 190 412 "
+                + "C206 388 228 374 256 374 C284 374 306 388 322 412 "
+                + "C336 372 360 314 366 254 C376 180 342 116 256 116 Z\" fill=\"url(#cabelo)\"/>\n")
+                .append("<path d=\"M182 168 C168 228 176 300 198 360\" fill=\"none\" stroke=\"#fff3c4\" "
+                        + "stroke-width=\"11\" stroke-linecap=\"round\" opacity=\".42\"/>\n")
+                .append("<path d=\"M330 168 C344 228 336 300 314 360\" fill=\"none\" stroke=\"#fff3c4\" "
+                        + "stroke-width=\"11\" stroke-linecap=\"round\" opacity=\".42\"/>\n");
 
-        // Sapatos
+        // Pernas longas de boneca fashion
+        int pernaTop = hemY - 14;
+        sb.append("<path d=\"M216 ").append(pernaTop).append(" C214 552 216 598 222 628 L246 628 "
+                + "C242 592 242 548 244 ").append(pernaTop).append(" Z\" fill=\"url(#pele)\"/>\n")
+                .append("<path d=\"M268 ").append(pernaTop).append(" C270 552 268 598 262 628 L286 628 "
+                + "C290 592 290 548 286 ").append(pernaTop).append(" Z\" fill=\"url(#pele)\"/>\n")
+                .append("<ellipse cx=\"234\" cy=\"582\" rx=\"11\" ry=\"4\" fill=\"").append(peleEscura)
+                .append("\" opacity=\".35\"/>\n")
+                .append("<ellipse cx=\"278\" cy=\"582\" rx=\"11\" ry=\"4\" fill=\"").append(peleEscura)
+                .append("\" opacity=\".35\"/>\n");
+
+        // Salto alto — sempre presente, com ou sem strass
+        sb.append("<path d=\"M214 620 Q236 608 252 622 L252 636 L212 636 Z\" fill=\"").append(acento).append("\"/>\n")
+                .append("<path d=\"M260 622 Q276 608 298 620 L300 636 L260 636 Z\" fill=\"").append(acento).append("\"/>\n")
+                .append("<path d=\"M220 606 Q234 600 248 606 M264 606 Q278 600 292 606\" fill=\"none\" stroke=\"")
+                .append(acento).append("\" stroke-width=\"5\" stroke-linecap=\"round\"/>\n");
         if (salto) {
-            sb.append("<path d=\"M218 614 L250 614 L256 632 L214 632 Z\" fill=\"").append(acento).append("\"/>\n")
-                    .append("<rect x=\"246\" y=\"630\" width=\"6\" height=\"14\" rx=\"2\" fill=\"").append(acento).append("\"/>\n")
-                    .append("<path d=\"M262 614 L294 614 L298 632 L256 632 Z\" fill=\"").append(acento).append("\"/>\n")
-                    .append("<rect x=\"260\" y=\"630\" width=\"6\" height=\"14\" rx=\"2\" fill=\"").append(acento).append("\"/>\n");
+            sb.append("<rect x=\"246\" y=\"634\" width=\"6\" height=\"16\" rx=\"2\" fill=\"").append(acento).append("\"/>\n")
+                    .append("<rect x=\"258\" y=\"634\" width=\"6\" height=\"16\" rx=\"2\" fill=\"").append(acento).append("\"/>\n");
         } else {
-            sb.append("<ellipse cx=\"234\" cy=\"624\" rx=\"22\" ry=\"10\" fill=\"").append(acento).append("\"/>\n")
-                    .append("<ellipse cx=\"278\" cy=\"624\" rx=\"22\" ry=\"10\" fill=\"").append(acento).append("\"/>\n");
+            sb.append("<rect x=\"242\" y=\"632\" width=\"14\" height=\"14\" rx=\"3\" fill=\"").append(acento).append("\"/>\n")
+                    .append("<rect x=\"256\" y=\"632\" width=\"14\" height=\"14\" rx=\"3\" fill=\"").append(acento).append("\"/>\n");
         }
 
-        // Cabelo atrás do corpo
-        sb.append("<path d=\"M256 126 C188 126 164 178 170 246 C174 298 192 328 208 344 L304 344 "
-                + "C320 326 338 294 342 242 C348 174 324 126 256 126 Z\" fill=\"").append(cabelo).append("\"/>\n");
+        // Braços: uma mão no quadril e a outra solta ou acenando
+        sb.append("<path d=\"M206 326 C182 350 168 390 164 432\" fill=\"none\" stroke=\"url(#pele)\" "
+                + "stroke-width=\"16\" stroke-linecap=\"round\"/>\n")
+                .append("<circle cx=\"164\" cy=\"436\" r=\"10\" fill=\"").append(pele).append("\"/>\n");
+        if (v % 2 == 0) {
+            sb.append("<path d=\"M306 326 C330 346 338 380 332 408\" fill=\"none\" stroke=\"url(#pele)\" "
+                    + "stroke-width=\"16\" stroke-linecap=\"round\"/>\n")
+                    .append("<circle cx=\"332\" cy=\"412\" r=\"10\" fill=\"").append(pele).append("\"/>\n");
+        } else {
+            sb.append("<path d=\"M306 326 C332 340 348 312 354 286\" fill=\"none\" stroke=\"url(#pele)\" "
+                    + "stroke-width=\"16\" stroke-linecap=\"round\"/>\n")
+                    .append("<circle cx=\"356\" cy=\"282\" r=\"10\" fill=\"").append(pele).append("\"/>\n");
+        }
 
-        // Braços
-        sb.append("<path d=\"M207 344 C184 368 171 398 166 428\" fill=\"none\" stroke=\"#ffd8bd\" "
-                + "stroke-width=\"18\" stroke-linecap=\"round\"/>\n");
-        sb.append("<path d=\"M305 344 C326 366 340 394 ").append(344 + (v % 2 == 0 ? 4 : -8))
-                .append(" 424\" fill=\"none\" stroke=\"#ffd8bd\" stroke-width=\"18\" stroke-linecap=\"round\"/>\n");
+        // Corpete com decote coração e saia em sino
+        sb.append("<path d=\"M204 324 C220 342 238 332 256 346 C274 332 292 342 308 324 "
+                + "L300 392 Q256 404 212 392 Z\" fill=\"url(#vestido)\"/>\n")
+                .append("<path d=\"M204 324 C220 342 238 332 256 346 C274 332 292 342 308 324\" "
+                + "fill=\"none\" stroke=\"").append(claro(acento)).append("\" stroke-width=\"6\" stroke-linecap=\"round\"/>\n")
+                .append("<path d=\"M212 392 L").append(hemL).append(' ').append(hemY)
+                .append(" Q256 ").append(hemY + 28).append(' ').append(hemR).append(' ').append(hemY)
+                .append(" L300 392 Q256 404 212 392 Z\" fill=\"url(#vestido)\"/>\n");
 
-        // Vestido
-        sb.append("<path d=\"M204 330 Q256 304 308 330 L").append(hemR).append(' ').append(hemY)
-                .append(" Q256 ").append(hemY + 24).append(' ').append(hemL).append(' ').append(hemY)
-                .append(" Z\" fill=\"url(#vestido)\"/>\n");
-
-        sb.append("<path d=\"M204 330 Q256 304 308 330 L300 360 Q256 372 212 360 Z\" fill=\"")
-                .append(claro(acento)).append("\" opacity=\".55\"/>\n");
-        sb.append("<path d=\"M256 366 L256 ").append(hemY - 12)
-                .append("\" stroke=\"#ffffff\" stroke-opacity=\".30\" stroke-width=\"3\"/>\n");
+        for (int px = 224; px <= 288; px += 16) {
+            sb.append("<path d=\"M").append(px).append(" 400 L").append(px + (px < 256 ? -18 : 18)).append(' ')
+                    .append(hemY + 10).append("\" stroke=\"#ffffff\" stroke-opacity=\".26\" stroke-width=\"3\" fill=\"none\"/>\n");
+        }
 
         if (floral) {
-            int[][] posicoes = {{226, 430}, {286, 448}, {236, 486}, {292, 500}, {256, 460}};
+            int[][] posicoes = {{226, 440}, {288, 458}, {238, 496}, {296, 512}, {256, 474}};
             for (int[] p : posicoes) {
-                sb.append(flor(p[0], p[1], 8, acento, "#ffffff"));
+                sb.append(flor(p[0], p[1], 9, acento, primaria));
             }
         }
 
-        // Cinto
-        sb.append("<path d=\"M208 ").append(cintoY).append(" Q256 ").append(cintoY + 16)
-                .append(" 304 ").append(cintoY).append(" L308 ").append(cintoY + 20)
-                .append(" Q256 ").append(cintoY + 36).append(" 204 ").append(cintoY + 20)
-                .append(" Z\" fill=\"").append(acento).append("\" opacity=\".92\"/>\n");
+        // Cinto e laço na cor exata do look
+        sb.append("<path d=\"M212 388 Q256 402 300 388 L304 402 Q256 416 208 402 Z\" fill=\"")
+                .append(primaria).append("\" opacity=\".85\"/>\n")
+                .append("<circle cx=\"256\" cy=\"402\" r=\"11\" fill=\"").append(claro(acento)).append("\"/>\n")
+                .append("<path d=\"M254 400 L232 390 L232 412 Z M258 400 L280 390 L280 412 Z\" fill=\"")
+                .append(claro(acento)).append("\" opacity=\".9\"/>\n");
 
         // Pescoço e rosto
-        sb.append("<rect x=\"244\" y=\"296\" width=\"24\" height=\"48\" rx=\"10\" fill=\"#ffd8bd\"/>\n")
-                .append("<circle cx=\"186\" cy=\"240\" r=\"12\" fill=\"#ffd8bd\"/>\n")
-                .append("<circle cx=\"326\" cy=\"240\" r=\"12\" fill=\"#ffd8bd\"/>\n")
-                .append("<ellipse cx=\"256\" cy=\"234\" rx=\"70\" ry=\"84\" fill=\"#ffdec9\"/>\n");
+        sb.append("<rect x=\"246\" y=\"286\" width=\"20\" height=\"52\" rx=\"9\" fill=\"url(#pele)\"/>\n")
+                .append("<ellipse cx=\"256\" cy=\"230\" rx=\"70\" ry=\"84\" fill=\"url(#pele)\"/>\n")
+                .append("<ellipse cx=\"220\" cy=\"258\" rx=\"17\" ry=\"10\" fill=\"#ff8fb8\" opacity=\".38\"/>\n")
+                .append("<ellipse cx=\"292\" cy=\"258\" rx=\"17\" ry=\"10\" fill=\"#ff8fb8\" opacity=\".38\"/>\n");
 
-        // Franja / penteado — muda de lado a cada variação
-        if (v % 2 == 0) {
-            sb.append("<path d=\"M186 216 C188 162 226 138 272 148 C242 166 228 192 226 222 "
-                    + "C210 210 196 210 186 216 Z\" fill=\"").append(cabelo).append("\"/>\n")
-                    .append("<path d=\"M330 210 C336 168 310 140 272 148 C300 168 310 196 308 224 Z\" fill=\"")
-                    .append(cabelo).append("\"/>\n");
-        } else {
-            sb.append("<path d=\"M326 216 C324 162 286 138 240 148 C270 166 284 192 286 222 "
-                    + "C302 210 316 210 326 216 Z\" fill=\"").append(cabelo).append("\"/>\n")
-                    .append("<path d=\"M182 210 C176 168 202 140 240 148 C212 168 202 196 204 224 Z\" fill=\"")
-                    .append(cabelo).append("\"/>\n");
-        }
+        // Olhos grandes e cílios — assinatura da boneca
+        sb.append("<ellipse cx=\"228\" cy=\"230\" rx=\"14\" ry=\"17\" fill=\"#ffffff\"/>\n")
+                .append("<ellipse cx=\"284\" cy=\"230\" rx=\"14\" ry=\"17\" fill=\"#ffffff\"/>\n")
+                .append("<circle cx=\"230\" cy=\"232\" r=\"9\" fill=\"#5aa9e6\"/>\n")
+                .append("<circle cx=\"282\" cy=\"232\" r=\"9\" fill=\"#5aa9e6\"/>\n")
+                .append("<circle cx=\"230\" cy=\"232\" r=\"5\" fill=\"#232347\"/>\n")
+                .append("<circle cx=\"282\" cy=\"232\" r=\"5\" fill=\"#232347\"/>\n")
+                .append("<circle cx=\"233\" cy=\"228\" r=\"3\" fill=\"#ffffff\"/>\n")
+                .append("<circle cx=\"285\" cy=\"228\" r=\"3\" fill=\"#ffffff\"/>\n")
+                .append("<path d=\"M212 216 Q228 206 244 216 M268 216 Q284 206 300 216\" fill=\"none\" stroke=\"")
+                .append(escuro(cabelo, .45)).append("\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n")
+                .append("<path d=\"M212 218 L204 210 M244 218 L252 210 M268 218 L260 210 M300 218 L308 210\" "
+                        + "stroke=\"").append(escuro(cabelo, .45))
+                .append("\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n");
 
-        // Olhos ou óculos de sol
         if (oculos) {
-            sb.append("<g fill=\"#2f2b45\" opacity=\".94\">\n")
-                    .append("<path d=\"M200 220 Q226 210 250 222 L248 240 Q224 250 202 238 Z\"/>\n")
-                    .append("<path d=\"M262 222 Q286 210 312 220 L310 238 Q288 250 264 240 Z\"/>\n")
+            sb.append("<g fill=\"#2f2b45\" opacity=\".95\">\n")
+                    .append("<path d=\"M198 216 Q226 204 252 220 L250 242 Q224 254 200 240 Z\"/>\n")
+                    .append("<path d=\"M260 220 Q286 204 314 216 L312 240 Q288 254 262 242 Z\"/>\n")
                     .append("</g>\n")
-                    .append("<path d=\"M250 226 Q256 220 262 226\" fill=\"none\" stroke=\"#2f2b45\" stroke-width=\"4\"/>\n")
-                    .append("<path d=\"M200 222 L184 216 M312 222 L328 216\" stroke=\"#2f2b45\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n");
-        } else {
-            sb.append("<ellipse cx=\"228\" cy=\"232\" rx=\"12\" ry=\"15\" fill=\"#ffffff\"/>\n")
-                    .append("<ellipse cx=\"284\" cy=\"232\" rx=\"12\" ry=\"15\" fill=\"#ffffff\"/>\n")
-                    .append("<circle cx=\"230\" cy=\"233\" r=\"7\" fill=\"#4aa3df\"/>\n")
-                    .append("<circle cx=\"282\" cy=\"233\" r=\"7\" fill=\"#4aa3df\"/>\n")
-                    .append("<circle cx=\"230\" cy=\"233\" r=\"3\" fill=\"#22223a\"/>\n")
-                    .append("<circle cx=\"282\" cy=\"233\" r=\"3\" fill=\"#22223a\"/>\n")
-                    .append("<path d=\"M214 212 Q228 204 242 212 M270 212 Q284 204 298 212\" fill=\"none\" stroke=\"")
-                    .append(escuro(cabelo, .35)).append("\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n");
+                    .append("<path d=\"M250 224 Q256 218 262 224\" fill=\"none\" stroke=\"#2f2b45\" stroke-width=\"5\"/>\n")
+                    .append("<path d=\"M200 220 L182 214 M312 220 L330 214\" stroke=\"")
+                    .append(acento).append("\" stroke-width=\"5\" stroke-linecap=\"round\"/>\n");
         }
 
-        // Nariz e sorriso
-        sb.append("<path d=\"M256 248 L253 258 L259 258\" fill=\"none\" stroke=\"#d9a07f\" "
-                + "stroke-width=\"2\" stroke-linecap=\"round\"/>\n")
-                .append("<path d=\"M236 270 Q256 286 276 270\" fill=\"none\" stroke=\"#c94f7c\" "
-                + "stroke-width=\"4\" stroke-linecap=\"round\"/>\n");
+        // Nariz e sorriso com batom
+        sb.append("<path d=\"M256 250 L252 260 L260 260\" fill=\"none\" stroke=\"#d9a07f\" "
+                + "stroke-width=\"2.5\" stroke-linecap=\"round\"/>\n")
+                .append("<path d=\"M238 270 Q248 264 256 270 Q264 264 274 270 Q256 288 238 270 Z\" fill=\"url(#lips)\"/>\n")
+                .append("<path d=\"M244 270 Q256 276 268 270\" fill=\"none\" stroke=\"#ffffff\" "
+                        + "stroke-width=\"2\" opacity=\".85\"/>\n");
 
-        // Brincos
-        sb.append("<circle cx=\"186\" cy=\"248\" r=\"5\" fill=\"").append(acento).append("\"/>\n")
-                .append("<circle cx=\"326\" cy=\"248\" r=\"5\" fill=\"").append(acento).append("\"/>\n");
+        // Franja e mechas laterais — penteado muda conforme a variação
+        if (v % 2 == 0) {
+            sb.append("<path d=\"M186 216 C182 154 222 130 274 144 C246 160 232 186 230 218 "
+                    + "C212 206 196 206 186 216 Z\" fill=\"url(#cabelo)\"/>\n")
+                    .append("<path d=\"M326 212 C334 158 306 132 274 144 C300 164 312 192 308 220 Z\" fill=\"url(#cabelo)\"/>\n");
+        } else {
+            sb.append("<path d=\"M326 216 C330 154 290 130 238 144 C266 160 280 186 282 218 "
+                    + "C300 206 316 206 326 216 Z\" fill=\"url(#cabelo)\"/>\n")
+                    .append("<path d=\"M186 212 C178 158 206 132 238 144 C212 164 200 192 204 220 Z\" fill=\"url(#cabelo)\"/>\n");
+        }
+        sb.append("<path d=\"M188 214 C176 272 186 334 204 374 C216 342 216 280 208 226 Z\" fill=\"url(#cabelo)\"/>\n")
+                .append("<path d=\"M324 214 C336 272 326 334 308 374 C296 342 296 280 304 226 Z\" fill=\"url(#cabelo)\"/>\n");
 
-        // Bolsa
+        // Brincos, colar e bolsa do acervo
+        sb.append("<circle cx=\"188\" cy=\"252\" r=\"6\" fill=\"").append(acento).append("\"/>\n")
+                .append("<circle cx=\"324\" cy=\"252\" r=\"6\" fill=\"").append(acento).append("\"/>\n")
+                .append("<path d=\"M236 304 Q256 322 276 304\" fill=\"none\" stroke=\"")
+                .append(acento).append("\" stroke-width=\"4\"/>\n")
+                .append("<path d=\"M256 320 L249 328 L256 336 L263 328 Z\" fill=\"").append(acento).append("\"/>\n");
+
         if (bolsa) {
             int bx = 328 + (v % 2 == 0 ? 0 : -14);
             sb.append("<path d=\"M").append(bx + 14).append(" 420 Q").append(bx + 36)
@@ -281,7 +331,6 @@ public class IlustracaoLookClient {
                     .append(" 474\" stroke=\"").append(claro(acento)).append("\" stroke-width=\"3\" opacity=\".8\"/>\n");
         }
 
-        // Brilho extra
         if (glitter) {
             sb.append(estrela(210, 392, 11, "#ffffff", ".85"))
                     .append(estrela(304, 470, 9, acento, ".9"))
@@ -290,7 +339,7 @@ public class IlustracaoLookClient {
 
         sb.append("</g>\n");
 
-        // Primeiro plano: estrelas que também mudam com a variação
+        // Estrelas em primeiro plano também variam com o botão "Outra imagem"
         sb.append(estrela(64 + v * 12, 150, 16, "#ffffff", ".8"))
                 .append(estrela(446 - v * 10, 250, 13, "#ffffff", ".75"))
                 .append(estrela(92, 540 + v * 8, 10, acento, ".7"))
