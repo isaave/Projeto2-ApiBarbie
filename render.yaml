@@ -27,6 +27,16 @@ services:
         value: "30000"
       - key: GEMINI_IMAGE_TIMEOUT_MS
         value: "90000"
+      # Foto realista de fallback quando o Gemini não tem cota de imagem.
+      # Não é segredo: pode ficar no blueprint.
+      - key: IMAGE_POLLINATIONS_ENABLED
+        value: "true"
+      - key: IMAGE_POLLINATIONS_BASE_URL
+        value: https://image.pollinations.ai
+      - key: IMAGE_POLLINATIONS_TIMEOUT_MS
+        value: "90000"
+      - key: IMAGE_POLLINATIONS_MODEL
+        value: flux
       - key: JAVA_TOOL_OPTIONS
         value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
       - key: OPENAPI_SERVER_URL

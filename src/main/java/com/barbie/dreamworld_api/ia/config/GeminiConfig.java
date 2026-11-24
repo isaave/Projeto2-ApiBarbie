@@ -7,11 +7,11 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 /**
- * Configuração dos clientes HTTP usados para falar com a API do Gemini.
+ * Clientes HTTP usados pelos geradores de IA.
  *
- * São dois clientes porque a geração de imagem (Nano Banana) costuma demorar
- * bem mais que a geração de texto. Manter timeouts separados evita que um
- * timeout curto de texto derrube a imagem (ou vice-versa).
+ * São três clientes porque texto, imagem do Gemini e imagem externa têm
+ * tempos de resposta bem diferentes. Manter timeouts separados evita que um
+ * timeout curto derrube a geração de imagem (ou vice-versa).
  */
 @Configuration
 public class GeminiConfig {
@@ -25,23 +25,34 @@ public class GeminiConfig {
     @Value("${gemini.image-timeout-ms:90000}")
     private int imageTimeoutMs;
 
+    @Value("${image.pollinations.base-url:https://image.pollinations.ai}")
+    private String pollinationsBaseUrl;
+
+    @Value("${image.pollinations.timeout-ms:90000}")
+    private int pollinationsTimeoutMs;
+
     @Bean
     public RestClient geminiRestClient() {
-        return buildClient(timeoutMs);
+        return buildClient(baseUrl, timeoutMs);
     }
 
     @Bean
     public RestClient geminiImageRestClient() {
-        return buildClient(imageTimeoutMs);
+        return buildClient(baseUrl, imageTimeoutMs);
     }
 
-    private RestClient buildClient(int timeout) {
+    @Bean
+    public RestClient pollinationsRestClient() {
+        return buildClient(pollinationsBaseUrl, pollinationsTimeoutMs);
+    }
+
+    private RestClient buildClient(String urlBase, int timeout) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(timeout);
         requestFactory.setReadTimeout(timeout);
 
         return RestClient.builder()
-                .baseUrl(baseUrl)
+                .baseUrl(urlBase)
                 .requestFactory(requestFactory)
                 .build();
     }

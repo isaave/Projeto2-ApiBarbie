@@ -134,9 +134,16 @@ curl -s -X POST http://localhost:8080/api/ia/assistente-estilo \
   -d '{"barbieId":1,"ocasiao":"festa no jardim","preferencias":"tons pastel"}'
 ```
 
-O campo `imagem.dataUrl` vem como `data:image/svg+xml;base64,...` quando o
-gerador de fotos do Gemini não tem cota (comportamento normal no tier gratuito).
-Basta colar esse valor na barra do navegador para ver a ilustração.
+O campo `imagem.dataUrl` tenta, nesta ordem:
+
+1. **Gemini Nano Banana** — foto realista, quando a chave tem cota de imagem;
+2. **Pollinations/FLUX** — foto realista sem chave, usada quando o Gemini
+   devolve `429` (comportamento normal no tier gratuito);
+3. **Ilustração vetorial** (`data:image/svg+xml;base64,...`) — último recurso,
+   feita com as cores e peças do próprio look e sem depender de rede.
+
+Quando um fallback é usado, `avisoImagem` explica qual caminho gerou a imagem.
+Basta colar o `dataUrl` na barra do navegador para vê-la.
 
 ---
 
@@ -152,6 +159,10 @@ permitem subir a aplicação sem configurar nada além de `GEMINI_API_KEY`.
 | `GEMINI_IMAGE_MODEL` | Não | `gemini-nano-banana-2.1` | Modelo de imagem usado na `Interactions API`. |
 | `GEMINI_TIMEOUT_MS` | Não | `30000` | Timeout da chamada de texto, em ms. |
 | `GEMINI_IMAGE_TIMEOUT_MS` | Não | `90000` | Timeout da chamada de imagem, em ms. |
+| `IMAGE_POLLINATIONS_ENABLED` | Não | `true` | Usa uma **foto realista** (FLUX) quando o Gemini não tem cota de imagem. `false` volta direto para o SVG local. |
+| `IMAGE_POLLINATIONS_BASE_URL` | Não | `https://image.pollinations.ai` | Endpoint do gerador de fotos alternativo. |
+| `IMAGE_POLLINATIONS_TIMEOUT_MS` | Não | `90000` | Timeout da foto alternativa, em ms. |
+| `IMAGE_POLLINATIONS_MODEL` | Não | `flux` | Modelo usado pelo gerador alternativo. |
 | `CORS_ALLOWED_ORIGINS` | Não | `https://isaave.github.io` | Origens permitidas, separadas por vírgula. **Nunca use `*`**: a API usa `allowCredentials(true)`. |
 | `OPENAPI_SERVER_URL` | Não | `https://projeto2-apibarbie.onrender.com` | URL exibida no botão “Execute” do Swagger. |
 | `PORT` | Não | `8080` | Porta HTTP. O Render injeta `10000` automaticamente. |

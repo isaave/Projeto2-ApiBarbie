@@ -36,7 +36,8 @@
 - [ ] Mostrar o diagrama do README (seção **Arquitetura**).
   - Frontend GitHub Pages → API Spring Boot 4 no Render (Docker, Java 25).
   - H2 em memória com dados de exemplo.
-  - Gemini para texto; Gemini para imagem; fallback SVG local.
+  - Gemini para texto; foto realista via Gemini → Pollinations/FLUX;
+    último recurso: SVG desenhado a partir do próprio look.
 - [ ] Destacar 3 decisões de produção:
   1. **Chaves de API com hash SHA-256** — a chave bruta só aparece na criação.
   2. **Rate limit por IP** com `Retry-After` e JWT não usado (chave mesmo).
@@ -75,12 +76,14 @@
 
 - [ ] Apontar no retorno: `tituloLook`, `paletaCores`, `itensSugeridos` e
       **acessórios que realmente pertencem à Barbie**.
-- [ ] Abrir `imagem.dataUrl` no navegador: ilustração vetorial coerente com o
-      look (cores e peças batem com o texto).
+- [ ] Abrir `imagem.dataUrl` no navegador: **foto realista** gerada a partir do
+      look (quando o Gemini não tem cota, entra o FLUX). Se cair no último
+      recurso, é uma ilustração vetorial coerente com as cores e peças do texto.
 - [ ] Mostrar `aviso` e `avisoImagem` e explicar com naturalidade:
-      _“se o Gemini estiver sem cota, o texto é montado a partir do acervo real
-      e a imagem é desenhada a partir do próprio look — nunca uma foto
-      aleatória. Os campos `aviso` e `avisoImagem` deixam isso transparente”_.
+      _“tentamos a foto pelo Gemini; sem cota, usamos um gerador de fotos
+      alternativo e, se ele falhar, desenhamos a partir do próprio look — nunca
+      uma imagem aleatória. Os campos `aviso` e `avisoImagem` deixam isso
+      transparente”_.
 
 ### 3.4 Dicas e nova imagem (1 min)
 - [ ] `POST /api/ia/assistente-estilo/dicas` com o contexto do look → mostrar
@@ -124,7 +127,7 @@ fica como próximo passo.”_
       `X-Forwarded-For` só atrás de proxy confiável.
 - [ ] Limitações com transparência: H2 em memória (dados voltam ao restart),
       plano free do Render suspende após inatividade, tier gratuito do Gemini
-      sem cota de imagem/texto (já mitigado por fallback local e SVG).
+      sem cota de imagem/texto (mitigado por fallback local + foto FLUX + SVG).
 - [ ] Convidar perguntas e deixar Swagger + frontend abertos.
 
 **Frase final:** _“A aplicação está publicada, documentada e pronta para

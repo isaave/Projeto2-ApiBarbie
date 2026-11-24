@@ -7,6 +7,7 @@ import com.barbie.dreamworld_api.ia.client.GeminiClient;
 import com.barbie.dreamworld_api.ia.client.GeminiImageClient;
 import com.barbie.dreamworld_api.ia.client.IlustracaoLookClient;
 import com.barbie.dreamworld_api.ia.client.LookLocalClient;
+import com.barbie.dreamworld_api.ia.client.PollinationsImageClient;
 import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
 import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
@@ -41,6 +42,7 @@ public class AssistenteEstiloService {
     private final GeminiClient geminiClient;
     private final GeminiImageClient geminiImageClient;
     private final IlustracaoLookClient ilustracaoLookClient;
+    private final PollinationsImageClient pollinationsImageClient;
     private final LookLocalClient lookLocalClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -84,17 +86,28 @@ public class AssistenteEstiloService {
         }
 
         // Usa exatamente o look que a IA acabou de gerar como base para a imagem.
-        // Se o provedor de imagens estiver sem quota, ainda devolvemos o look em
-        // texto com um aviso, em vez de descartar toda a resposta da IA.
+        // Ordem dos provedores: Gemini (melhor qualidade) → Pollinations/FLUX
+        // (foto realista sem chave) → ilustração vetorial determinística.
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
+        String promptFotorealista = promptFotorealista(promptImagem);
         ImagemGerada imagem = null;
 
         try {
-            imagem = geminiImageClient.gerarImagem(promptImagem);
+            imagem = geminiImageClient.gerarImagem(promptFotorealista);
         } catch (RuntimeException ex) {
-            log.warn("Gemini sem imagem disponível ({}). Usando ilustração vetorial do look.", ex.getMessage());
-            resposta.setAvisoImagem(
-                    "Ilustração estilo Barbie criada a partir do look (o gerador de fotos estava sem cota).");
+            log.warn("Gemini sem imagem disponível ({}). Tentando gerador de fotos alternativo.",
+                    ex.getMessage());
+        }
+
+        if (imagem == null) {
+            try {
+                imagem = pollinationsImageClient.gerarImagem(promptFotorealista);
+                resposta.setAvisoImagem(
+                        "Foto realista gerada por modelo alternativo (o gerador do Gemini estava sem cota).");
+            } catch (RuntimeException ex) {
+                log.warn("Gerador de fotos externo falhou ({}). Usando ilustração vetorial.",
+                        ex.getMessage());
+            }
         }
 
         if (imagem == null) {
@@ -103,6 +116,8 @@ public class AssistenteEstiloService {
                 // cores, peças e acessórios do look gerado pela IA. Não depende
                 // de serviço externo nem de cota de imagem.
                 imagem = ilustracaoLookClient.gerarImagem(promptImagem, resposta);
+                resposta.setAvisoImagem(
+                        "Ilustração estilo Barbie criada a partir do look (os geradores de foto estavam sem cota).");
             } catch (RuntimeException ex) {
                 log.warn("Ilustração do look falhou: {}", ex.getMessage());
                 resposta.setAvisoImagem(
@@ -177,11 +192,30 @@ public class AssistenteEstiloService {
                 .promptImagem(request.getPromptImagem())
                 .build();
 
+        int variacao = request.getVariacaoImagem() == null ? 0 : request.getVariacaoImagem();
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, look);
-        ImagemGerada imagem = ilustracaoLookClient.gerarNovaImagem(
-                promptImagem,
-                request.getVariacaoImagem() == null ? 0 : request.getVariacaoImagem(),
-                look);
+        String promptFotorealista = promptFotorealista(promptImagem)
+                + ", alternate pose and camera angle, variation " + variacao;
+        ImagemGerada imagem = null;
+
+        try {
+            imagem = geminiImageClient.gerarImagem(promptFotorealista);
+        } catch (RuntimeException ex) {
+            log.warn("Gemini sem imagem ao regerar ({}). Tentando gerador alternativo.", ex.getMessage());
+        }
+
+        if (imagem == null) {
+            try {
+                imagem = pollinationsImageClient.gerarImagem(promptFotorealista, variacao);
+            } catch (RuntimeException ex) {
+                log.warn("Gerador externo falhou ao regerar ({}). Usando ilustração vetorial.",
+                        ex.getMessage());
+            }
+        }
+
+        if (imagem == null) {
+            imagem = ilustracaoLookClient.gerarNovaImagem(promptImagem, variacao, look);
+        }
 
         return SugestaoLookResponse.ImagemLook.builder()
                 .dataUrl(imagem.toDataUrl())
@@ -290,6 +324,22 @@ public class AssistenteEstiloService {
                     "A IA retornou dicas em formato inesperado. Tente novamente em instantes.",
                     HttpStatus.BAD_GATEWAY, e);
         }
+    }
+
+    /**
+     * Transforma o prompt curto do look em um prompt de FOTOGRAFIA realista.
+     * As peças, cores e acessórios continuam sendo exatamente os do look —
+     * só mudam o estilo de renderização e a qualidade esperada.
+     */
+    private String promptFotorealista(String promptImagem) {
+        return promptImagem.trim().replaceAll("[.\\s]+$", "")
+                + ". Photorealistic high-fashion editorial photograph of a Barbie-style "
+                + "fashion doll, believable proportions, blonde hair, large blue eyes, "
+                + "wearing exactly the outfit and accessories described, full body from "
+                + "head to toe, centered, natural pose, soft diffused studio light, "
+                + "85mm lens, shallow depth of field, realistic skin, hair and fabric "
+                + "texture, ultra detailed, high resolution, clean light pink seamless "
+                + "backdrop. No text, no letters, no logos, no watermarks, no deformed hands.";
     }
 
     /**
