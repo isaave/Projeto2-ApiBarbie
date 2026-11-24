@@ -1,10 +1,13 @@
 package com.barbie.dreamworld_api.ia.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 /**
  * Dados enviados pelo cliente para gerar, via IA generativa, uma sugestão
@@ -35,4 +38,9 @@ public class SugestaoLookRequest {
             example = "Gosto de tons pastel e prefiro evitar saltos muito altos")
     @Size(max = 300, message = "As preferências devem ter no máximo 300 caracteres")
     private String preferencias;
+
+    @Schema(description = "Últimas mensagens do chat, para contexto controlado (máximo 6)")
+    @Valid
+    @Size(max = 6, message = "O histórico deve ter no máximo 6 mensagens")
+    private List<MensagemHistorico> historico;
 }

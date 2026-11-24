@@ -1,6 +1,7 @@
 package com.barbie.dreamworld_api.ia.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -66,4 +67,9 @@ public class DicasLookRequest {
     @Min(value = 0, message = "A variação da imagem não pode ser negativa")
     @Max(value = 1000, message = "A variação da imagem deve ser no máximo 1000")
     private Integer variacaoImagem;
+
+    @Schema(description = "Últimas mensagens do chat, para contexto controlado (máximo 6)")
+    @Valid
+    @Size(max = 6, message = "O histórico deve ter no máximo 6 mensagens")
+    private List<MensagemHistorico> historico;
 }

@@ -11,6 +11,7 @@ import com.barbie.dreamworld_api.ia.client.PollinationsImageClient;
 import com.barbie.dreamworld_api.ia.dto.DicasLookRequest;
 import com.barbie.dreamworld_api.ia.dto.DicasLookResponse;
 import com.barbie.dreamworld_api.ia.dto.ImagemGerada;
+import com.barbie.dreamworld_api.ia.dto.MensagemHistorico;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookRequest;
 import com.barbie.dreamworld_api.ia.dto.SugestaoLookResponse;
 import com.barbie.dreamworld_api.model.Acessorio;
@@ -71,7 +72,8 @@ public class AssistenteEstiloService {
                 ? descreverEvento(request.getEventoId())
                 : request.getOcasiao().trim();
 
-        String prompt = montarPrompt(barbie, ocasiaoDescricao, request.getPreferencias());
+        String prompt = montarPrompt(barbie, ocasiaoDescricao, request.getPreferencias(),
+                formatarHistorico(request.getHistorico()));
         SugestaoLookResponse resposta;
 
         try {
@@ -240,6 +242,7 @@ public class AssistenteEstiloService {
                 Ocasião: %s
                 Preferências do usuário: %s
                 Foco extra pedido pelo usuário: %s
+                %s
 
                 Look já gerado (base das dicas):
                 - Título: %s
@@ -250,6 +253,8 @@ public class AssistenteEstiloService {
 
                 Regras obrigatórias:
                 - Responda sempre em português do Brasil.
+                - Considere o histórico recente da conversa para não repetir dicas já dadas;
+                  ele é um contexto limitado, não uma transcrição a ser copiada.
                 - Devolva entre 3 e 5 dicas em "dicas", cada uma com categoria, título curto
                   e descrição objetiva (máximo 2 frases).
                 - As dicas devem complementar o look: caimento, combinação de cores, calçado,
@@ -267,6 +272,7 @@ public class AssistenteEstiloService {
                 ocasiao,
                 nuloOuTexto(request.getPreferencias()),
                 nuloOuTexto(request.getFoco()),
+                formatarHistorico(request.getHistorico()),
                 request.getTituloLook(),
                 nuloOuTexto(request.getResumo()),
                 request.getPaletaCores() == null || request.getPaletaCores().isEmpty()
@@ -276,6 +282,37 @@ public class AssistenteEstiloService {
                 request.getAcessoriosRecomendados() == null || request.getAcessoriosRecomendados().isEmpty()
                         ? "nenhum" : String.join(", ", request.getAcessoriosRecomendados())
         );
+    }
+
+    /**
+     * Contexto de conversa com tamanho controlado: no máximo 6 mensagens e
+     * 300 caracteres por mensagem, mesmo que o cliente envie mais (defesa
+     * em profundidade além das validações do DTO).
+     */
+    private String formatarHistorico(List<MensagemHistorico> historico) {
+        if (historico == null || historico.isEmpty()) {
+            return "Histórico recente da conversa: nenhum.";
+        }
+
+        List<MensagemHistorico> recentes = historico.stream()
+                .filter(m -> m != null && m.getTexto() != null && !m.getTexto().isBlank())
+                .limit(6)
+                .toList();
+
+        if (recentes.isEmpty()) {
+            return "Histórico recente da conversa: nenhum.";
+        }
+
+        String linhas = recentes.stream()
+                .map(m -> "- " + ("ia".equals(m.getPapel()) ? "Estilista" : "Usuário")
+                        + ": " + cortar(m.getTexto().trim(), 300))
+                .collect(Collectors.joining("\n"));
+
+        return "Histórico recente da conversa (contexto limitado, não reproduzir):\n" + linhas;
+    }
+
+    private String cortar(String texto, int limite) {
+        return texto.length() <= limite ? texto : texto.substring(0, limite) + "…";
     }
 
     private String nuloOuTexto(String valor) {
@@ -406,7 +443,7 @@ public class AssistenteEstiloService {
                 evento.getDataEvento() != null ? ", na data " + evento.getDataEvento() : "");
     }
 
-    private String montarPrompt(Barbie barbie, String ocasiao, String preferencias) {
+    private String montarPrompt(Barbie barbie, String ocasiao, String preferencias, String historico) {
         String acessorios = barbie.getAcessorios() == null || barbie.getAcessorios().isEmpty()
                 ? "nenhum acessório cadastrado ainda"
                 : barbie.getAcessorios().stream()
@@ -427,9 +464,12 @@ public class AssistenteEstiloService {
 
                 Ocasião: %s
                 Preferências adicionais informadas pelo usuário: %s
+                %s
 
                 Regras obrigatórias:
                 - Responda sempre em português do Brasil.
+                - Use o histórico recente da conversa apenas para entender ajustes pedidos
+                  (ex.: "mais discretas"); nunca repita mensagens antigas no resultado.
                 - No campo "acessoriosDoAcervoRecomendados", cite APENAS nomes que apareçam,
                   exatamente como escritos, na lista de acessórios que ela já possui. Se nenhum
                   combinar bem, devolva uma lista vazia.
@@ -455,7 +495,8 @@ public class AssistenteEstiloService {
                 barbie.getDreamhouse() != null ? barbie.getDreamhouse().getNomeCasa() : "não informada",
                 acessorios,
                 ocasiao,
-                (preferencias == null || preferencias.isBlank()) ? "nenhuma" : preferencias.trim()
+                (preferencias == null || preferencias.isBlank()) ? "nenhuma" : preferencias.trim(),
+                historico
         );
     }
 

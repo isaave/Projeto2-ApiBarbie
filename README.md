@@ -227,36 +227,50 @@ Documentação completa (schemas, exemplos e códigos de erro) no Swagger UI.
   "barbieId": 1,
   "eventoId": 2,
   "ocasiao": null,
-  "preferencias": "Gosto de tons pastel e prefiro evitar saltos muito altos"
+  "preferencias": "Gosto de tons pastel e prefiro evitar saltos muito altos",
+  "historico": [
+    { "papel": "user", "texto": "quero algo discreto" },
+    { "papel": "ia", "texto": "Sugeri tons pastel" }
+  ]
 }
 ```
 
 - Informe **`eventoId`** **ou** **`ocasiao`** (texto livre, até 300 chars).
+- `historico` é opcional: até **6 mensagens** de **400 caracteres**, com
+  `papel` igual a `user` ou `ia`. O servidor limita novamente antes de montar
+  o prompt, para não estourar a janela de contexto da LLM.
 - Resposta `200`: `tituloLook`, `resumo`, `paletaCores`, `itensSugeridos`,
-  `acessoriosDoAcervoRecomendados`, `promptImagem`, `imagem` e, quando o
-  gerador de fotos falha, `avisoImagem` + `imagem.dataUrl` em SVG.
+  `acessoriosDoAcervoRecomendados`, `promptImagem`, `imagem` e, quando um
+  fallback é usado, `aviso` e/ou `avisoImagem`.
 
 ### 2. Refinar com dicas — `POST /api/ia/assistente-estilo/dicas`
 
-Recebe o look já gerado como contexto e devolve de 3 a 5 dicas práticas
-(caimento, cores, calçado, acessórios, cabelo) mais um `toqueFinal`.
-O campo `foco` permite pedir, por exemplo, dicas só de calçado.
+Recebe o look já gerado e o `historico` recente como contexto, e devolve de
+3 a 5 dicas práticas (caimento, cores, calçado, acessórios, cabelo) mais um
+`toqueFinal`. O campo `foco` permite pedir, por exemplo, dicas só de calçado.
+O histórico serve para não repetir dicas anteriores — nunca é copiado no resultado.
 
 ### 3. Outra imagem do mesmo look — `POST /api/ia/assistente-estilo/regerar-imagem`
 
-Mantém o texto intacto e devolve uma nova variação determinística da
-ilustração: pose, penteado e cenário mudam, mas **cores, peças e acessórios
-continuam sendo exatamente os do look**. Não consome Gemini nem serviço
-externo. O campo `variacaoImagem` (0–1000) controla a variação.
+Mantém o texto intacto e tenta uma **nova foto** do mesmo visual: primeiro no
+Gemini, depois no Pollinations/FLUX com outra semente e, se ambos falharem,
+numa variação vetorial determinística. Pose e cenário mudam, mas **cores,
+peças e acessórios continuam sendo exatamente os do look**. O campo
+`variacaoImagem` (0–1000) controla a variação.
 
-### Por que a imagem é um SVG e não uma foto aleatória
+### Por que a imagem pode vir como foto ou como SVG
 
-O tier gratuito do Gemini não tem cota de geração de imagem (`429`), e o
-fallback anterior baseado em geradores públicos devolvia imagens sem relação
-com o look. Agora o backend desenha a Barbie localmente a partir das **cores,
-itens e acessórios do próprio look**, garantindo coerência entre texto e imagem
-e eliminando dependência de cota externa. O frontend exibe o aviso
-`avisoImagem` para deixar isso transparente ao usuário.
+O tier gratuito do Gemini não tem cota de geração de imagem (`429`). Para não
+devolver imagens sem sentido, a API tenta nesta ordem:
+
+1. **Gemini Nano Banana** — foto realista, quando a chave tem cota;
+2. **Pollinations/FLUX** — foto realista sem chave, com retry de 10 s quando
+   o provedor está no limite;
+3. **IlustracaoLookClient** — SVG desenhado localmente a partir das **cores,
+   itens e acessórios do próprio look**.
+
+O campo `avisoImagem` identifica qual caminho gerou a imagem, deixando o
+fallback transparente no frontend.
 
 ---
 

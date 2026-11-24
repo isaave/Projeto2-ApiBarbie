@@ -107,6 +107,8 @@ digitar nada.”_
       **Gerar look com IA**.
 - [ ] Mostrar o resultado renderizado: imagem, título, paleta, itens e
       acessórios.
+- [ ] No chat, enviar uma mensagem de ajuste e mostrar que ele usa só as
+      **6 mensagens recentes** como contexto controlado (não histórico ilimitado).
 - [ ] Clicar em **💡 Dicas aprimoradas** e depois em **🔄 Outra imagem**.
 - [ ] Mostrar rapidamente o CRUD (Barbies/Eventos) e o tratamento de erros:
       loading, mensagens amigáveis para 429/503 e renovação da chave após
