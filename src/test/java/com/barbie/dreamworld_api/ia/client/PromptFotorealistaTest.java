@@ -51,6 +51,16 @@ class PromptFotorealistaTest {
     }
 
     @Test
+    void etiquetaFotorealistaEIdempotente() {
+        String uma = PromptFotorealista.etiquetar("fashion doll, pink dress");
+        String duas = PromptFotorealista.etiquetar(uma);
+
+        assertEquals(uma, duas);
+        assertTrue(uma.contains("photorealistic studio photograph"));
+        assertEquals(1, uma.toLowerCase(Locale.ROOT).split("photorealistic", -1).length - 1);
+    }
+
+    @Test
     void promptJaFotorealistaRecebeRegrasCompletas() {
         String prompt = PromptFotorealista.de("photorealistic fashion doll, pink dress");
 

@@ -43,6 +43,21 @@ public final class PromptFotorealista {
         return base + REGRAS_FOTO;
     }
 
+    /**
+     * Deixa a etiqueta fotorealista visível também no campo `promptImagem`
+     * devolvido ao frontend (que é copiado/exportado pelo usuário). Idempotente:
+     * pode ser chamada quantas vezes for preciso sem duplicar a etiqueta.
+     */
+    public static String etiquetar(String promptImagem) {
+        String base = promptImagem == null ? "" : promptImagem.trim();
+        base = base.replaceAll("(?i),?\\s*photorealistic studio photograph", "");
+        base = base.replaceAll("[.\\s,]+$", "");
+        if (base.isBlank()) {
+            return "fashion doll, photorealistic studio photograph";
+        }
+        return base + ", photorealistic studio photograph";
+    }
+
     /** Variação usada por "Outra imagem": mesma foto, pose e ângulo diferentes. */
     public static String comVariacao(String promptImagem, int variacao) {
         return de(promptImagem)

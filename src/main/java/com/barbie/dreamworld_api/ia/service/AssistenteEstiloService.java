@@ -93,6 +93,8 @@ public class AssistenteEstiloService {
         // (foto realista sem chave) → ilustração vetorial determinística.
         String promptImagem = montarPromptImagem(barbie, ocasiaoDescricao, resposta);
         String promptFotorealista = PromptFotorealista.de(promptImagem);
+        // O prompt devolvido ao frontend também deixa claro que a imagem é foto.
+        resposta.setPromptImagem(PromptFotorealista.etiquetar(promptImagem));
         ImagemGerada imagem = null;
 
         try {
@@ -373,9 +375,8 @@ public class AssistenteEstiloService {
         // Isso evita que o gerador de imagem ignore detalhes de um prompt longo
         // e garante que a imagem corresponda ao look que foi pedido.
         if (look.getPromptImagem() != null && !look.getPromptImagem().isBlank()) {
-            return look.getPromptImagem().trim().replaceAll("[.\\s]+$", "")
-                    + ", photorealistic studio photograph, full body, centered, "
-                    + "no text, no logos, no watermarks";
+            return PromptFotorealista.etiquetar(look.getPromptImagem())
+                    + ", full body, centered, no text, no logos, no watermarks";
         }
 
         StringBuilder sb = new StringBuilder();
