@@ -2,12 +2,14 @@
 
 API REST para gerenciar o universo **Barbie Dreamworld** (Barbies, Profissões,
 Dreamhouses, Acessórios e Eventos), estendida com o **Assistente de Estilo**:
-um módulo de **Geração de Conteúdo com IA generativa (Google Gemini)** que cria
-looks completos a partir dos dados reais cadastrados, devolve dicas de
-refinamento e produz uma ilustração vetorial da Barbie com aquele look.
+um módulo de **Geração e Produtividade com IA generativa (Google Gemini)** que
+cria looks completos a partir dos dados reais cadastrados, devolve dicas de
+refinamento, permite copiar/exportar o resultado e gera uma **foto realista** da
+Barbie com aquele look (com fallback para ilustração vetorial).
 
-**Categoria do trabalho:** Geração de Conteúdo (Trabalho 2 — Aplicação Web
-Completa com IA em Produção).
+**Categoria do trabalho (conforme o PDF):** Geração e Produtividade — ferramenta
+web com formulários parametrizados para criação e cópia de peças de texto, com
+deploy real e IA generativa.
 
 ---
 
@@ -46,8 +48,8 @@ Completa com IA em Produção).
                                                                     ▼                       ▼
                                                          ┌────────────────────────────────────┐
                                                          │ LookLocalClient (texto local)     │
+                                                         │ Pollinations/FLUX (foto realista) │
                                                          │ IlustracaoLookClient (SVG local)  │
-                                                         │ determinísticos, sem rede externa │
                                                          └────────────────────────────────────┘
 ```
 
@@ -58,7 +60,7 @@ Camadas relevantes do código:
 | `controllers` | CRUD das 5 entidades + rotas de autenticação |
 | `apikey`, `ratelimit` | Segurança: chaves com hash SHA-256, limites por IP |
 | `ia.controller`, `ia.service` | Orquestração do Assistente de Estilo |
-| `ia.client` | `GeminiClient` (texto), `GeminiImageClient` (foto), `LookLocalClient` (texto local), `IlustracaoLookClient` (SVG) |
+| `ia.client` | `GeminiClient` (texto), `GeminiImageClient` (foto), `PollinationsImageClient` (foto FLUX), `LookLocalClient` (texto local), `IlustracaoLookClient` (SVG) |
 | `ia.dto` | Contratos de entrada/saída com schemas e exemplos no Swagger |
 | `infrastructure` | CORS, OpenAPI e carga inicial do banco |
 | `exceptions` | Envelope de erro único + escrita JSON nos filtros |
@@ -356,9 +358,13 @@ para a API do Render. A chave é gerada automaticamente na primeira carga.
   pode levar ~50 s. Para a apresentação, acesse a URL pouco antes ou use um
   plano pago.
 - **Tier gratuito do Gemini:** não gera imagens e pode esgotar a cota de texto.
-  O sistema degrada em duas camadas: texto montado a partir do acervo real
-  (campo `aviso`) e ilustração SVG determinística (`avisoImagem`). Ainda assim,
-  configure uma chave ativa antes da banca para demonstrar o caminho completo
-  com o Gemini.
+  O sistema degrada em três camadas: texto montado a partir do acervo real
+  (campo `aviso`), **foto realista via Pollinations/FLUX** e, por fim,
+  ilustração SVG determinística (`avisoImagem` diz qual caminho foi usado).
+  Configure uma chave com cota antes da banca para demonstrar o caminho
+  completo com o Gemini.
+- **Gerador de fotos externo:** o Pollinations é público e não exige chave,
+  mas pode devolver `429` em picos de uso. Nesse caso a API cai para o SVG,
+  sem quebrar a demonstração.
 - **Sem persistência de chaves:** reiniciar a API invalida as chaves; o
   frontend renova automaticamente.
