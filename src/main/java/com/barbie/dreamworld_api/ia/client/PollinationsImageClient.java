@@ -32,6 +32,8 @@ public class PollinationsImageClient {
 
     private static final int LARGURA = 768;
     private static final int ALTURA = 1024;
+    private static final int MAX_TENTATIVAS = 2;
+    private static final long ESPERA_RETRY_MS = 10_000;
 
     private final RestClient restClient;
     private final boolean habilitado;
@@ -62,49 +64,76 @@ public class PollinationsImageClient {
 
         int semente = Math.floorMod(prompt.hashCode() + variacao * 7919, 1_000_000);
 
-        try {
-            ResponseEntity<byte[]> resposta = restClient.get()
-                    .uri(uri -> uri
-                            .path("/prompt/{prompt}")
-                            .queryParam("width", LARGURA)
-                            .queryParam("height", ALTURA)
-                            .queryParam("seed", semente)
-                            .queryParam("model", modelo)
-                            .queryParam("nologo", "true")
-                            .queryParam("enhance", "true")
-                            .build(Map.of("prompt", prompt)))
-                    .accept(MediaType.IMAGE_JPEG, MediaType.IMAGE_PNG, MediaType.ALL)
-                    .retrieve()
-                    .toEntity(byte[].class);
+        for (int tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+            try {
+                ResponseEntity<byte[]> resposta = restClient.get()
+                        .uri(uri -> uri
+                                .path("/prompt/{prompt}")
+                                .queryParam("width", LARGURA)
+                                .queryParam("height", ALTURA)
+                                .queryParam("seed", semente)
+                                .queryParam("model", modelo)
+                                .queryParam("nologo", "true")
+                                .queryParam("enhance", "true")
+                                .build(Map.of("prompt", prompt)))
+                        .accept(MediaType.IMAGE_JPEG, MediaType.IMAGE_PNG, MediaType.ALL)
+                        .retrieve()
+                        .toEntity(byte[].class);
 
-            byte[] bytes = resposta.getBody();
-            if (bytes == null || bytes.length < 2048 || !pareceImagem(bytes)) {
+                byte[] bytes = resposta.getBody();
+                if (bytes == null || bytes.length < 2048 || !pareceImagem(bytes)) {
+                    throw new AiServiceException(
+                            "O gerador de fotos devolveu um arquivo inválido.",
+                            HttpStatus.BAD_GATEWAY);
+                }
+
+                MediaType tipo = resposta.getHeaders().getContentType();
+                String mimeType = tipo != null && tipo.isConcrete() && tipo.getType().equals("image")
+                        ? tipo.toString()
+                        : MediaType.IMAGE_JPEG_VALUE;
+
+                log.info("Foto realista gerada ({} bytes, mime={}).", bytes.length, mimeType);
+                return new ImagemGerada(mimeType, Base64.getEncoder().encodeToString(bytes));
+
+            } catch (HttpClientErrorException.TooManyRequests | HttpServerErrorException ex) {
+                if (tentativa == MAX_TENTATIVAS) {
+                    HttpStatus status = ex instanceof HttpClientErrorException.TooManyRequests
+                            ? HttpStatus.TOO_MANY_REQUESTS
+                            : HttpStatus.BAD_GATEWAY;
+                    throw new AiServiceException(
+                            "O gerador de fotos está no limite agora. Tente novamente em instantes.",
+                            status, ex);
+                }
+                // O Pollinations costuma recomendar "Retry after 10s" em 503.
+                log.warn("Pollinations ocupado ({}). Retentando em 10 s.", ex.getStatusCode());
+                aguardarAntesDeRetentar();
+
+            } catch (HttpClientErrorException ex) {
+                log.warn("Pollinations respondeu {}: {}", ex.getStatusCode(), ex.getMessage());
                 throw new AiServiceException(
-                        "O gerador de fotos devolveu um arquivo inválido.",
-                        HttpStatus.BAD_GATEWAY);
+                        "O gerador de fotos externo falhou.", HttpStatus.BAD_GATEWAY, ex);
+
+            } catch (ResourceAccessException ex) {
+                if (tentativa == MAX_TENTATIVAS) {
+                    log.warn("Pollinations indisponível: {}", ex.getMessage());
+                    throw new AiServiceException(
+                            "O gerador de fotos externo está indisponível.",
+                            HttpStatus.SERVICE_UNAVAILABLE, ex);
+                }
+                log.warn("Pollinations indisponível ({}). Retentando em 10 s.", ex.getMessage());
+                aguardarAntesDeRetentar();
             }
+        }
 
-            MediaType tipo = resposta.getHeaders().getContentType();
-            String mimeType = tipo != null && tipo.isConcrete() && tipo.getType().equals("image")
-                    ? tipo.toString()
-                    : MediaType.IMAGE_JPEG_VALUE;
+        throw new AiServiceException(
+                "O gerador de fotos externo não respondeu.", HttpStatus.SERVICE_UNAVAILABLE);
+    }
 
-            log.info("Foto realista gerada ({} bytes, mime={}).", bytes.length, mimeType);
-            return new ImagemGerada(mimeType, Base64.getEncoder().encodeToString(bytes));
-
-        } catch (HttpClientErrorException.TooManyRequests ex) {
-            throw new AiServiceException(
-                    "O gerador de fotos está recebendo muitas requisições. Aguarde um momento.",
-                    HttpStatus.TOO_MANY_REQUESTS, ex);
-        } catch (HttpClientErrorException | HttpServerErrorException ex) {
-            log.warn("Pollinations respondeu {}: {}", ex.getStatusCode(), ex.getMessage());
-            throw new AiServiceException(
-                    "O gerador de fotos externo falhou.", HttpStatus.BAD_GATEWAY, ex);
-        } catch (ResourceAccessException ex) {
-            log.warn("Pollinations indisponível: {}", ex.getMessage());
-            throw new AiServiceException(
-                    "O gerador de fotos externo está indisponível.",
-                    HttpStatus.SERVICE_UNAVAILABLE, ex);
+    private void aguardarAntesDeRetentar() {
+        try {
+            Thread.sleep(ESPERA_RETRY_MS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
